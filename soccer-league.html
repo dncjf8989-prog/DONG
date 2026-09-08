@@ -211,6 +211,8 @@ table.league-table td.pts { font-weight: 700; color: var(--accent); }
 .commentary-list li .min { font-family: var(--font-score); color: var(--text-dim); width: 34px; flex-shrink:0; }
 .commentary-list li.goal { border-color: var(--accent); }
 .commentary-list li.goal .min { color: var(--accent); }
+.commentary-list li.marker { border-color: transparent; color: var(--text-dim); font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.06em; justify-content: center; padding-left: 0; }
+.commentary-list li.marker .min { display: none; }
 
 /* ---- transfer market ---- */
 #transferOverlay, #startOverlay, #summaryOverlay {
@@ -366,6 +368,18 @@ function randomName(usedSet) {
 const POSITIONS = ["GK", "DF", "MF", "FW"];
 const POSITION_LABEL = { GK: "골키퍼", DF: "수비수", MF: "미드필더", FW: "공격수" };
 const FORMATION = { GK: 1, DF: 4, MF: 3, FW: 3 };
+const FLAVOR_LINES = [
+  "위협적인 슈팅이 골대를 살짝 벗어났다.",
+  "상대 골키퍼의 환상적인 선방이 나왔다!",
+  "중원 다툼이 치열하게 이어지고 있다.",
+  "코너킥 찬스가 이어진다.",
+  "거친 태클에 옐로카드가 나왔다.",
+  "역습 상황, 아쉽게 마무리되지 못했다.",
+  "관중석에서 뜨거운 함성이 터져나왔다.",
+  "프리킥 찬스, 담장을 넘기지 못했다.",
+  "우리 팀 골키퍼의 침착한 선방!",
+  "양 팀 선수단 사이에 신경전이 벌어졌다.",
+];
 const TOTAL_ROUNDS = 18;
 const SQUAD_MAX = 22;
 
@@ -397,6 +411,9 @@ function makeSquad(usedNames) {
         pos,
         rating: rand(60, 78),
         stamina: 100,
+        morale: 70,
+        benchStreak: 0,
+        riskFlag: false,
         injuredRounds: 0,
         goals: 0,
         apps: 0,
@@ -454,16 +471,21 @@ function makeTransferBatch(usedNames) {
       pos: choice(POSITIONS),
       rating: rand(58, 84),
       stamina: 100,
+      morale: 70,
+      benchStreak: 0,
+      riskFlag: false,
       injuredRounds: 0,
       goals: 0,
       apps: 0,
+      isProspect: false,
     });
   }
   return batch;
 }
 
 function estimateValue(p) {
-  return Math.round(Math.pow(p.rating / 10, 2) * 3);
+  const base = Math.round(Math.pow(p.rating / 10, 2) * 3);
+  return p.isProspect ? Math.round(base * 0.6) : base;
 }
 
 function startNewCareer(userTeamIdx) {
@@ -471,11 +493,13 @@ function startNewCareer(userTeamIdx) {
   const teams = makeAiTeams(usedNames);
   const squad = makeSquad(usedNames);
   const fixtures = generateRoundRobin(teams.map(t => t.id));
+  const rivalId = choice(teams.filter(t => t.id !== userTeamIdx).map(t => t.id));
 
   state = {
     season: 1,
     round: 0,
     userTeamId: userTeamIdx,
+    rivalId,
     teams,
     standings: freshStandings(teams),
     fixtures,
@@ -488,12 +512,17 @@ function startNewCareer(userTeamIdx) {
     usedNames: [...usedNames],
     news: [],
     screen: "lineup",
+    pendingEvent: null,
+    sponsorBonusActive: false,
+    facilityBoostRounds: 0,
+    boardTargetSet: false,
     lastReport: null,
     over: false,
     activeTableTab: "table",
     activeTransferTab: "buy",
   };
   autoFillLineup();
+  addNews(`올 시즌 라이벌은 ${teamName(rivalId)}(으)로 정해졌다.`, false);
   addNews(`${teamName(userTeamIdx)} 감독으로 부임했다. 시즌 1 개막!`, true);
 }
 
@@ -512,7 +541,15 @@ function availablePlayers(pos) {
 }
 
 function effectiveRating(p) {
-  return p.injuredRounds > 0 ? p.rating * 0.5 : p.rating;
+  let r = p.injuredRounds > 0 ? p.rating * 0.5 : p.rating;
+  r *= (0.92 + 0.08 * clampNum(p.morale, 0, 100) / 100);
+  return r;
+}
+
+function moraleColor(v) {
+  if (v > 60) return "var(--good)";
+  if (v > 35) return "var(--warn)";
+  return "var(--danger)";
 }
 
 function autoFillLineup() {
@@ -620,6 +657,7 @@ function playUserMatch() {
   const userIsHome = fixture.home === state.userTeamId;
   const oppId = userIsHome ? fixture.away : fixture.home;
   const opp = state.teams.find(t => t.id === oppId);
+  const isRival = oppId === state.rivalId;
   const oppVariance = () => rand(-6, 6);
 
   const { attack, defense } = userTeamStrength();
@@ -640,6 +678,9 @@ function playUserMatch() {
     events.push({ minute: rand(1, 90), side: "opp", scorer });
     if (scorer === opp.starName) opp.starGoals++;
   }
+  buildFlavorEvents(rand(3, 5)).forEach(e => events.push(e));
+  events.push({ minute: 45, side: "marker", text: "전반전 종료" });
+  events.push({ minute: 90, side: "marker", text: "경기 종료 휘슬이 울렸다" });
   events.sort((a, b) => a.minute - b.minute);
 
   // fatigue + injuries for starters
@@ -647,20 +688,29 @@ function playUserMatch() {
   starterIds.forEach(id => {
     const p = playerById(id);
     p.apps++;
+    p.benchStreak = 0;
     p.stamina = clampNum(p.stamina - rand(8, 18), 30, 100);
-    if (chance(0.05)) {
+    const injuryChance = p.riskFlag ? 0.15 : 0.05;
+    if (chance(injuryChance)) {
       p.injuredRounds = 1;
       addNews(`${p.name} 선수가 경기 중 무리하여 다음 라운드에 결장합니다.`, false);
     }
+    p.riskFlag = false;
   });
   state.squad.forEach(p => {
     if (!starterIds.includes(p.id)) {
       p.stamina = clampNum(p.stamina + 20, 0, 100);
       if (p.injuredRounds > 0) p.injuredRounds--;
+      p.benchStreak++;
+      if (p.benchStreak >= 3) p.morale = clampNum(p.morale - 5, 0, 100);
     }
   });
 
   applyResult(state.userTeamId, oppId, userGoals, oppGoals);
+
+  const result = userGoals > oppGoals ? "win" : userGoals === oppGoals ? "draw" : "loss";
+  const moraleDelta = result === "win" ? 4 : result === "draw" ? 1 : -3;
+  starterIds.forEach(id => { const p = playerById(id); p.morale = clampNum(p.morale + moraleDelta, 0, 100); });
 
   const homeGoals = userIsHome ? userGoals : oppGoals;
   const awayGoals = userIsHome ? oppGoals : userGoals;
@@ -671,7 +721,8 @@ function playUserMatch() {
     homeGoals, awayGoals,
     userIsHome,
     events,
-    result: userGoals > oppGoals ? "win" : userGoals === oppGoals ? "draw" : "loss",
+    result,
+    isRival,
   };
 
   // prize money
@@ -679,13 +730,41 @@ function playUserMatch() {
   let income = 40;
   if (rank <= 3) income = 90;
   else if (rank <= 6) income = 60;
-  if (state.lastReport.result === "win") income += 30;
-  else if (state.lastReport.result === "draw") income += 10;
+  if (result === "win") income += 30;
+  else if (result === "draw") income += 10;
+  if (state.sponsorBonusActive) {
+    if (result === "win") {
+      income += 40;
+      addNews("스폰서 약속대로 승리 보너스를 지급받았다!", true);
+    }
+    state.sponsorBonusActive = false;
+  }
   state.budget += income;
-  addNews(`[${state.round + 1}R] ${fixture.home === state.userTeamId ? teamName(fixture.home) : opp.name} ${homeGoals} - ${awayGoals} ${fixture.away === state.userTeamId ? teamName(fixture.away) : opp.name}. 수입 ${income}억 획득.`, state.lastReport.result === "win");
+  addNews(`[${state.round + 1}R]${isRival ? " 🔥라이벌전" : ""} ${fixture.home === state.userTeamId ? teamName(fixture.home) : opp.name} ${homeGoals} - ${awayGoals} ${fixture.away === state.userTeamId ? teamName(fixture.away) : opp.name}. 수입 ${income}억 획득.`, result === "win");
+
+  if (isRival) {
+    if (result === "win") {
+      state.squad.forEach(p => { p.morale = clampNum(p.morale + 8, 0, 100); });
+      addNews(`라이벌 ${opp.name}을(를) 꺾었다! 선수단 전체 사기가 크게 올랐다.`, true);
+    } else if (result === "loss") {
+      addNews(`라이벌 ${opp.name}에게 무릎을 꿇었다...`, false);
+    }
+  }
 
   applyTraining();
   simulateOtherMatches();
+}
+
+function buildFlavorEvents(count) {
+  const picks = [];
+  const usedMinutes = new Set([45, 90]);
+  for (let i = 0; i < count; i++) {
+    let m;
+    do { m = rand(3, 87); } while (usedMinutes.has(m));
+    usedMinutes.add(m);
+    picks.push({ minute: m, side: "flavor", text: choice(FLAVOR_LINES) });
+  }
+  return picks;
 }
 
 function simulateOtherMatches() {
@@ -725,11 +804,14 @@ function currentUserRank() {
 }
 
 function applyTraining() {
+  const facilityBoostActive = state.facilityBoostRounds > 0;
+  if (state.facilityBoostRounds > 0) state.facilityBoostRounds--;
+  const successRate = facilityBoostActive ? 0.34 : 0.22;
   const targetPos = state.training === "attack" ? ["FW", "MF"] : state.training === "defense" ? ["DF", "GK"] : null;
   if (targetPos) {
     const improved = [];
     state.squad.filter(p => targetPos.includes(p.pos)).forEach(p => {
-      if (chance(0.22) && p.rating < 95) {
+      if (chance(successRate) && p.rating < 95) {
         p.rating += 1;
         improved.push(p);
       }
@@ -761,8 +843,206 @@ function goToNextRound() {
   }
   state.transferMarket = makeTransferBatch(new Set(state.usedNames));
   autoFillLineup();
+  const ev = rollEvent();
+  if (ev) {
+    state.pendingEvent = ev;
+    state.screen = "event";
+  } else {
+    state.screen = "lineup";
+  }
+  render();
+}
+
+/* ---------------- Random events ---------------- */
+
+const EVENTS = [
+  {
+    id: "board_target",
+    title: "이사회의 요구",
+    text: () => "구단 이사회가 찾아왔다. \"이번 시즌 상위권 성적을 기대하고 있습니다.\" 어떻게 답하겠는가?",
+    condition: (s) => !s.boardTargetSet,
+    options: [
+      { label: "자신 있게 약속한다", effect: (s) => { s.boardTargetSet = true; s.budget += 30; return "이사회가 신뢰를 보이며 지원 예산 30억을 추가로 편성했다. 하지만 기대도 함께 커졌다."; } },
+      { label: "신중하게 답한다", effect: (s) => { s.boardTargetSet = true; return "이사회는 신중한 태도를 이해했다. 별다른 변화는 없었다."; } },
+    ],
+  },
+  {
+    id: "sponsor_offer",
+    title: "스폰서의 제안",
+    text: () => "메인 스폰서가 다음 경기 승리 시 특별 보너스를 지급하겠다고 제안했다.",
+    condition: (s) => !s.sponsorBonusActive,
+    options: [
+      { label: "제안을 받아들인다", effect: (s) => { s.sponsorBonusActive = true; return "스폰서 제안을 수락했다. 다음 경기에서 승리하면 40억의 보너스를 받는다."; } },
+      { label: "부담스러워 거절한다", effect: () => "괜한 부담을 지지 않기로 했다." },
+    ],
+  },
+  {
+    id: "prospect_scouted",
+    title: "유망주 발견",
+    text: () => "스카우트 팀이 저평가된 유망주를 발견했다는 보고를 올렸다.",
+    condition: () => true,
+    options: [
+      { label: "이적시장에 추가한다", effect: (s) => {
+          const usedNames = new Set(s.usedNames);
+          const prospect = { id: "tm" + Date.now() + Math.random(), name: randomName(usedNames), pos: choice(POSITIONS), rating: rand(62, 76), stamina: 100, morale: 70, benchStreak: 0, riskFlag: false, injuredRounds: 0, goals: 0, apps: 0, isProspect: true };
+          s.usedNames = [...usedNames];
+          s.transferMarket.push(prospect);
+          return `유망주 ${prospect.name}(${POSITION_LABEL[prospect.pos]}) 정보를 입수해 이적시장에 등록했다. 시세보다 저렴하다.`;
+        } },
+      { label: "일단 지켜본다", effect: () => "당장은 움직이지 않기로 했다." },
+    ],
+  },
+  {
+    id: "injury_risk",
+    title: "부상 위험 경고",
+    text: (s) => {
+      const p = riskiestStarter(s);
+      return `팀 닥터가 경고했다. "${p ? p.name : "주전 선수"}의 피로도가 위험 수준입니다."`;
+    },
+    condition: (s) => !!riskiestStarter(s),
+    options: [
+      { label: "그래도 기용한다", effect: (s) => {
+          const p = riskiestStarter(s);
+          if (p) p.riskFlag = true;
+          return `${p ? p.name : "선수"}를 계속 기용하기로 했다. 이번 경기 부상 위험이 높아졌다.`;
+        } },
+      { label: "충분히 쉬게 한다", effect: (s) => {
+          const p = riskiestStarter(s);
+          if (p) { p.stamina = clampNum(p.stamina + 20, 0, 100); p.morale = clampNum(p.morale + 3, 0, 100); }
+          return `${p ? p.name : "선수"}를 충분히 쉬게 했다. 컨디션이 회복되었다.`;
+        } },
+    ],
+  },
+  {
+    id: "transfer_request",
+    title: "이적 요청",
+    text: (s) => {
+      const p = unhappiestPlayer(s);
+      return `${p ? p.name : "한 선수"}가 면담을 요청했다. "출전 기회가 부족합니다. 이적하고 싶습니다."`;
+    },
+    condition: (s) => !!unhappiestPlayer(s),
+    options: [
+      { label: "설득한다 (80억)", effect: (s) => {
+          const p = unhappiestPlayer(s);
+          if (!p) return "이미 상황이 정리되었다.";
+          if (s.budget >= 80) {
+            s.budget -= 80;
+            p.morale = 70;
+            return `${p.name}를 설득하는 데 성공했다. 사기가 안정을 되찾았다.`;
+          }
+          removeFromSquad(s, p.id);
+          return `설득할 예산이 부족해 ${p.name}를 어쩔 수 없이 방출했다.`;
+        } },
+      { label: "방출한다", effect: (s) => {
+          const p = unhappiestPlayer(s);
+          if (!p) return "이미 상황이 정리되었다.";
+          const value = Math.round(estimateValue(p) * 0.6);
+          s.budget += value;
+          removeFromSquad(s, p.id);
+          return `${p.name}를 ${value}억에 방출했다. 스쿼드 분위기가 술렁인다.`;
+        } },
+    ],
+  },
+  {
+    id: "call_up",
+    title: "국가대표 차출",
+    text: (s) => {
+      const p = bestPlayer(s);
+      return `낭보다! ${p ? p.name : "우리 팀 선수"}가 국가대표팀에 차출되었다.`;
+    },
+    condition: (s) => !!bestPlayer(s),
+    options: [
+      { label: "자랑스럽게 보낸다", effect: (s) => {
+          const p = bestPlayer(s);
+          if (p) { p.stamina = clampNum(p.stamina - 15, 30, 100); p.morale = clampNum(p.morale + 5, 0, 100); }
+          return `${p ? p.name : "선수"}가 자부심을 안고 다녀왔다. 다만 이동 피로로 체력이 다소 떨어졌다.`;
+        } },
+    ],
+  },
+  {
+    id: "veteran_leadership",
+    title: "베테랑의 조언",
+    text: (s) => {
+      const p = bestPlayer(s);
+      return `${p ? p.name : "베테랑 선수"}가 후배들을 다독이며 라커룸 분위기를 이끌었다.`;
+    },
+    condition: (s) => state.squad.some(p => p.rating >= 78),
+    options: [
+      { label: "고마움을 전한다", effect: (s) => {
+          s.squad.forEach(p => { p.morale = clampNum(p.morale + 5, 0, 100); });
+          return "선수단 전체의 사기가 소폭 올랐다.";
+        } },
+    ],
+  },
+  {
+    id: "facility_upgrade",
+    title: "훈련장 개선 제안",
+    text: () => "구단 프런트가 훈련장 개선 비용(60억)을 투자하면 당분간 훈련 효과가 좋아질 것이라 제안했다.",
+    condition: (s) => s.budget >= 60 && s.facilityBoostRounds <= 0,
+    options: [
+      { label: "투자한다 (60억)", effect: (s) => { s.budget -= 60; s.facilityBoostRounds = 3; return "훈련장을 개선했다. 앞으로 3라운드 동안 훈련 성공률이 오른다."; } },
+      { label: "보류한다", effect: () => "예산을 아끼기로 했다." },
+    ],
+  },
+];
+
+function riskiestStarter(s) {
+  const ids = lineupIds();
+  const list = ids.map(playerById).filter(p => p && p.stamina < 45 && !p.riskFlag);
+  return list.sort((a, b) => a.stamina - b.stamina)[0] || null;
+}
+
+function unhappiestPlayer(s) {
+  const list = s.squad.filter(p => p.morale < 25);
+  return list.sort((a, b) => a.morale - b.morale)[0] || null;
+}
+
+function bestPlayer(s) {
+  return s.squad.slice().sort((a, b) => b.rating - a.rating)[0] || null;
+}
+
+function removeFromSquad(s, playerId) {
+  s.squad = s.squad.filter(x => x.id !== playerId);
+  if (s.lineup.GK === playerId) s.lineup.GK = null;
+  ["DF", "MF", "FW"].forEach(pos => {
+    s.lineup[pos] = s.lineup[pos].map(id => id === playerId ? null : id);
+  });
+  refillLineupGaps();
+}
+
+function rollEvent() {
+  if (!chance(0.4)) return null;
+  const eligible = EVENTS.filter(e => !e.condition || e.condition(state));
+  if (!eligible.length) return null;
+  return choice(eligible);
+}
+
+function resolveEvent(optionIndex) {
+  const ev = state.pendingEvent;
+  if (!ev) return;
+  const opt = ev.options[optionIndex];
+  const resultText = opt.effect(state);
+  addNews(`[${ev.title}] ${resultText}`, true);
+  state.pendingEvent = null;
   state.screen = "lineup";
   render();
+}
+
+function eventScreenHtml() {
+  const ev = state.pendingEvent;
+  return `
+    <h2>📋 ${ev.title}</h2>
+    <p class="sub-hint" style="font-size:1em;line-height:1.6;">${ev.text(state)}</p>
+    <div class="controls-row" style="flex-direction:column;">
+      ${ev.options.map((o, i) => `<button class="ghost-btn event-option-btn" data-index="${i}" style="width:100%;text-align:left;margin-bottom:8px;">${o.label}</button>`).join("")}
+    </div>
+  `;
+}
+
+function bindEventScreen() {
+  document.querySelectorAll(".event-option-btn").forEach(btn => {
+    btn.addEventListener("click", () => resolveEvent(parseInt(btn.dataset.index)));
+  });
 }
 
 /* ---------------- Transfer market ---------------- */
@@ -833,6 +1113,9 @@ function renderCenterPanel() {
   } else if (state.screen === "report") {
     panel.innerHTML = reportScreenHtml();
     bindReportScreen();
+  } else if (state.screen === "event") {
+    panel.innerHTML = eventScreenHtml();
+    bindEventScreen();
   }
 }
 
@@ -845,19 +1128,21 @@ function lineupScreenHtml() {
   const userIsHome = fixture.home === state.userTeamId;
   const opp = state.teams.find(t => t.id === (userIsHome ? fixture.away : fixture.home));
   const oppOverall = Math.round((opp.attack + opp.defense) / 2);
+  const isRival = opp.id === state.rivalId;
 
   let html = `
     <h2>${state.round + 1}라운드 선발 명단</h2>
     <p class="sub-hint">포메이션 4-3-3. 각 슬롯을 눌러 선수를 교체하세요.</p>
+    ${isRival ? '<p class="sub-hint" style="color:var(--danger);font-weight:700;">🔥 이번 경기는 라이벌전입니다. 승리하면 선수단 사기가 크게 오릅니다.</p>' : ''}
     <div class="matchup">
       <div class="side you">
         <div class="team-name">${teamName(state.userTeamId)}</div>
         <div class="team-rating">감독: 나</div>
         ${userIsHome ? '<span class="home-tag">HOME</span>' : '<span class="away-tag">AWAY</span>'}
       </div>
-      <div class="vs">VS</div>
+      <div class="vs">${isRival ? "🔥" : "VS"}</div>
       <div class="side">
-        <div class="team-name">${opp.name}</div>
+        <div class="team-name">${opp.name}${isRival ? ' <span style="color:var(--danger);">(라이벌)</span>' : ''}</div>
         <div class="team-rating">종합 ${oppOverall}</div>
         ${!userIsHome ? '<span class="home-tag">HOME</span>' : '<span class="away-tag">AWAY</span>'}
       </div>
@@ -909,6 +1194,7 @@ function slotHtml(pos, index, playerId) {
       <div class="p-meta">
         <span>능력 ${p.rating}</span>
         <span><span class="stamina-dot" style="background:${staminaColor(p.stamina)}"></span>체력 ${p.stamina}</span>
+        <span><span class="stamina-dot" style="background:${moraleColor(p.morale)}"></span>사기 ${p.morale}</span>
       </div>
     </div>
   `;
@@ -953,7 +1239,7 @@ function openSlotPicker(pos, index) {
       <div class="player-row">
         <div class="p-info">
           <span class="p-name">${o.p.name} ${o.taken ? '<span style="color:var(--text-dim);font-size:0.8em;">(다른 슬롯에 배치됨)</span>' : ''}</span>
-          <span class="p-meta">능력 ${o.p.rating} · 체력 ${o.p.stamina}${o.p.injuredRounds > 0 ? ' · <span class="injured-tag">부상</span>' : ''}</span>
+          <span class="p-meta">능력 ${o.p.rating} · 체력 ${o.p.stamina} · 사기 ${o.p.morale}${o.p.injuredRounds > 0 ? ' · <span class="injured-tag">부상</span>' : ''}</span>
         </div>
         <button class="ghost-btn pick-choice-btn" data-id="${o.p.id}">선택</button>
       </div>
@@ -985,20 +1271,22 @@ function reportScreenHtml() {
   const resultColor = r.result === "win" ? "var(--good)" : r.result === "draw" ? "var(--warn)" : "var(--danger)";
   return `
     <h2>${state.round + 1}라운드 결과</h2>
-    <p class="sub-hint" style="color:${resultColor};font-weight:700;">${resultLabel}</p>
+    <p class="sub-hint" style="color:${resultColor};font-weight:700;">${r.isRival ? "🔥 라이벌전 · " : ""}${resultLabel}</p>
     <div class="scoreboard">
       <div class="team-block"><div class="team-name">${r.homeTeam}</div></div>
       <div class="score">
-        <span class="num ${!r.userIsHome === false && r.result === 'win' ? 'win' : ''}">${r.homeGoals}</span>
+        <span class="num ${r.userIsHome && r.result === 'win' ? 'win' : ''}">${r.homeGoals}</span>
         <span class="dash">-</span>
-        <span class="num">${r.awayGoals}</span>
+        <span class="num ${!r.userIsHome && r.result === 'win' ? 'win' : ''}">${r.awayGoals}</span>
       </div>
       <div class="team-block"><div class="team-name">${r.awayTeam}</div></div>
     </div>
     <ul class="commentary-list">
-      ${r.events.length ? r.events.map(e => `
-        <li class="goal"><span class="min">${e.minute}'</span><span>⚽ ${e.scorer} 득점 ${e.side === 'user' ? '(우리 팀)' : '(' + '상대' + ')'}</span></li>
-      `).join("") : '<li><span class="min">-</span><span>득점 없이 무승부 양상의 경기였다.</span></li>'}
+      ${r.events.map(e => {
+        if (e.side === "marker") return `<li class="marker"><span class="min">${e.minute}'</span><span>${e.text}</span></li>`;
+        if (e.side === "flavor") return `<li><span class="min">${e.minute}'</span><span>${e.text}</span></li>`;
+        return `<li class="goal"><span class="min">${e.minute}'</span><span>⚽ ${e.scorer} 득점 ${e.side === 'user' ? '(우리 팀)' : '(상대)'}</span></li>`;
+      }).join("")}
     </ul>
     <button class="primary-btn" id="nextRoundBtn">${state.round + 1 >= TOTAL_ROUNDS ? "시즌 결과 보기" : "다음 라운드로"}</button>
   `;
@@ -1094,9 +1382,12 @@ function startNextSeason() {
     t.attack = clampNum(t.attack + rand(-4, 4), 45, 92);
     t.defense = clampNum(t.defense + rand(-4, 4), 45, 92);
   });
-  state.squad.forEach(p => { p.goals = 0; p.apps = 0; p.stamina = 100; p.injuredRounds = 0; });
+  state.squad.forEach(p => { p.goals = 0; p.apps = 0; p.stamina = 100; p.morale = clampNum(p.morale, 40, 100); p.benchStreak = 0; p.injuredRounds = 0; });
   state.fixtures = generateRoundRobin(state.teams.map(t => t.id));
   state.transferMarket = makeTransferBatch(new Set(state.usedNames));
+  state.boardTargetSet = false;
+  state.sponsorBonusActive = false;
+  state.facilityBoostRounds = 0;
   autoFillLineup();
   state.screen = "lineup";
   addNews(`시즌 ${state.season} 개막!`, true);

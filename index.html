@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>표류: 무인도 생존</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <header id="topbar">
+    <div id="dayInfo">
+      <span id="dayLabel">1일차</span>
+      <span id="phaseLabel">아침</span>
+    </div>
+    <div id="locLabel">해변</div>
+  </header>
+
+  <section id="stats">
+    <div class="stat" data-stat="health">
+      <span class="stat-icon">❤</span>
+      <div class="bar"><div class="fill" id="fill-health"></div></div>
+      <span class="stat-num" id="num-health">100</span>
+    </div>
+    <div class="stat" data-stat="satiety">
+      <span class="stat-icon">🍖</span>
+      <div class="bar"><div class="fill" id="fill-satiety"></div></div>
+      <span class="stat-num" id="num-satiety">100</span>
+    </div>
+    <div class="stat" data-stat="hydration">
+      <span class="stat-icon">💧</span>
+      <div class="bar"><div class="fill" id="fill-hydration"></div></div>
+      <span class="stat-num" id="num-hydration">100</span>
+    </div>
+    <div class="stat" data-stat="sanity">
+      <span class="stat-icon">🧠</span>
+      <div class="bar"><div class="fill" id="fill-sanity"></div></div>
+      <span class="stat-num" id="num-sanity">100</span>
+    </div>
+  </section>
+
+  <main id="mainArea">
+
+    <section id="locationPanel">
+      <h2 id="locTitle">해변</h2>
+      <p id="locDesc"></p>
+      <div id="actionList"></div>
+    </section>
+
+    <section id="sidePanel">
+      <div class="panel-block">
+        <h3>이동</h3>
+        <div id="moveList"></div>
+      </div>
+
+      <div class="panel-block">
+        <h3>인벤토리</h3>
+        <div id="inventoryList"></div>
+      </div>
+
+      <div class="panel-block">
+        <h3>즉시 행동</h3>
+        <div id="quickActions"></div>
+      </div>
+
+      <div class="panel-block">
+        <h3>도구 / 시설</h3>
+        <div id="toolList"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <section id="craftPanel" class="hidden">
+    <div id="craftPanelInner">
+      <div class="craft-header">
+        <h3>제작</h3>
+        <button id="closeCraft">닫기</button>
+      </div>
+      <div id="craftList"></div>
+    </div>
+  </section>
+
+  <footer id="logPanel">
+    <h3>기록</h3>
+    <ul id="logList"></ul>
+  </footer>
+
+  <div id="overlay" class="hidden">
+    <div id="overlayBox">
+      <h1 id="overlayTitle"></h1>
+      <p id="overlayText"></p>
+      <button id="overlayRestart">새로 시작하기</button>
+    </div>
+  </div>
+
+  <div id="startOverlay">
+    <div id="startBox">
+      <h1>🏝 표류: 무인도 생존</h1>
+      <p>거센 폭풍에 배가 난파되어 이름 없는 섬에 홀로 표류했다.<br>
+      해가 뜨고 지는 흐름 속에서, 자원을 모으고 도구를 만들어<br>
+      살아남거나 — 섬을 탈출하라.</p>
+      <p class="hint">시간은 실시간으로 흐르지 않습니다. 행동을 선택할 때마다 하루의 시간대(아침 → 낮 → 저녁 → 밤)가 넘어갑니다.</p>
+      <button id="newGameBtn">새 게임 시작</button>
+      <button id="continueBtn" class="hidden">이어서 하기</button>
+    </div>
+  </div>
+
+</div>
+<script src="game.js"></script>
+</body>
+</html>

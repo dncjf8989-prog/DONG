@@ -60,7 +60,7 @@ function pickTargetForCard(game, idx, def) {
     }, null);
   }
 
-  // 'any' 대상: 처치 가능한 적 미니언 우선, 없으면 상대 영웅.
+  // 처치 가능한 적 미니언 우선, 없으면 상대 영웅(가능한 대상 종류일 때만).
   const oppMinionTargets = targets.filter(t => t.kind === 'minion' && t.playerIdx !== idx);
   const killable = oppMinionTargets.filter(t => {
     const m = game.getCharacter(t);
@@ -70,7 +70,16 @@ function pickTargetForCard(game, idx, def) {
     killable.sort((a, b) => game.getCharacter(b).attack - game.getCharacter(a).attack);
     return killable[0];
   }
-  return { kind: 'hero', playerIdx: 1 - idx };
+
+  const heroTarget = targets.find(t => t.kind === 'hero' && t.playerIdx !== idx);
+  if (heroTarget) return heroTarget;
+
+  // 영웅을 대상으로 할 수 없는 카드(예: 적 미니언 전용)라면 가장 위협적인 적 미니언을 고른다.
+  if (oppMinionTargets.length > 0) {
+    oppMinionTargets.sort((a, b) => game.getCharacter(b).attack - game.getCharacter(a).attack);
+    return oppMinionTargets[0];
+  }
+  return targets[0];
 }
 
 function pickHeroPowerTarget(game, idx) {

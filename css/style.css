@@ -74,6 +74,21 @@ body {
 .hero-name { font-size: 11px; color: #e8d8b8; }
 .hero-health { font-size: 22px; font-weight: bold; color: #ff6b6b; }
 .hero.targetable { box-shadow: 0 0 0 4px #ff3b3b88; cursor: pointer; }
+
+@keyframes atk-lunge {
+  0% { transform: translate(0, 0) scale(1); }
+  40% { transform: translate(var(--atk-dx, 0px), var(--atk-dy, 0px)) scale(1.1); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+.minion.attacking, .hero.attacking { animation: atk-lunge 0.32s ease-in-out; z-index: 5; }
+
+@keyframes hit-flash-kf {
+  0%, 100% { filter: brightness(1); transform: translate(0, 0); }
+  20% { filter: brightness(2) saturate(4) hue-rotate(-40deg); transform: translate(-4px, 0); }
+  45% { transform: translate(4px, 0); }
+  70% { transform: translate(-2px, 0); }
+}
+.minion.hit-flash, .hero.hit-flash { animation: hit-flash-kf 0.3s ease-in-out; }
 #opponent-area .hero { align-self: center; }
 
 .hero-row {
@@ -143,6 +158,13 @@ body {
 #end-turn-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 #skip-target-btn { background: linear-gradient(160deg, #666, #333); }
 .hidden { display: none !important; }
+
+#legend {
+  text-align: center;
+  font-size: 11px;
+  color: #8a9bad;
+  padding: 2px 0 4px;
+}
 
 .hand { display: flex; gap: 8px; justify-content: center; min-height: 150px; flex-wrap: wrap; }
 .hand-back { min-height: 90px; }
@@ -247,6 +269,8 @@ body {
 .minion.can-attack { cursor: pointer; box-shadow: 0 0 0 2px #7CFC0088; }
 .minion.selected { box-shadow: 0 0 0 3px #ffe066; transform: translateY(-6px); }
 .minion.targetable { box-shadow: 0 0 0 3px #ff3b3b88; cursor: pointer; }
+.minion.frozen { filter: saturate(0.6) brightness(0.95); box-shadow: inset 0 0 0 2px #7fd8f0aa; }
+.minion.stealthed { opacity: 0.72; border-style: dashed; }
 .minion-cat-badge {
   position: absolute;
   top: -6px;
@@ -260,6 +284,23 @@ body {
   justify-content: center;
   font-size: 9px;
   border: 2px solid rgba(0, 0, 0, 0.35);
+}
+.minion-state-badges {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  display: flex;
+  gap: 2px;
+  font-size: 12px;
+}
+.state-badge {
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .minion-art {
   width: 32px;

@@ -6,6 +6,7 @@ import { runAiTurn } from './ai.js';
 let game = null;
 let selection = null; // {type:'card', handIndex, def} | {type:'attack', minionId} | {type:'heropower'}
 let gameMode = 'ai'; // 'ai' | 'hotseat' | 'online'
+let pendingAttackAnim = null;
 
 // ---- 온라인 대전 상태 (WebRTC/PeerJS, 로그인·서버 저장소 불필요) ----
 let roomCode = null;
@@ -233,6 +234,43 @@ function handleHeroPowerClick() {
   render();
 }
 
+function elForRef(ref, myIdx) {
+  if (ref.kind === 'hero') {
+    return ref.playerIdx === myIdx ? document.getElementById('player-hero') : document.getElementById('opponent-hero');
+  }
+  const role = ref.playerIdx === myIdx ? 'own-minion' : 'enemy-minion';
+  return document.querySelector(`[data-role="${role}"][data-minion-id="${ref.id}"]`);
+}
+
+function computeAttackAnim(attackerEl, targetEl, attackerId, targetRef) {
+  if (!attackerEl) return null;
+  const a = attackerEl.getBoundingClientRect();
+  let dx = 0;
+  let dy = 0;
+  if (targetEl) {
+    const t = targetEl.getBoundingClientRect();
+    dx = (t.left + t.width / 2) - (a.left + a.width / 2);
+    dy = (t.top + t.height / 2) - (a.top + a.height / 2);
+  }
+  return { attackerId, targetRef, dx: dx * 0.4, dy: dy * 0.4 };
+}
+
+function applyAttackAnimation(anim) {
+  const myIdx = activeIdx();
+  const attackerEl = document.querySelector(`[data-role="own-minion"][data-minion-id="${anim.attackerId}"]`);
+  if (attackerEl) {
+    attackerEl.style.setProperty('--atk-dx', anim.dx + 'px');
+    attackerEl.style.setProperty('--atk-dy', anim.dy + 'px');
+    attackerEl.classList.add('attacking');
+    attackerEl.addEventListener('animationend', () => attackerEl.classList.remove('attacking'), { once: true });
+  }
+  const targetEl = elForRef(anim.targetRef, myIdx);
+  if (targetEl) {
+    targetEl.classList.add('hit-flash');
+    targetEl.addEventListener('animationend', () => targetEl.classList.remove('hit-flash'), { once: true });
+  }
+}
+
 function resolveTarget(ref) {
   if (!selection) return;
   const idx = activeIdx();
@@ -244,6 +282,9 @@ function resolveTarget(ref) {
   } else if (selection.type === 'heropower') {
     game.useHeroPower(idx, ref);
   } else if (selection.type === 'attack') {
+    const attackerEl = document.querySelector(`[data-role="own-minion"][data-minion-id="${selection.minionId}"]`);
+    const targetEl = elForRef(ref, idx);
+    pendingAttackAnim = computeAttackAnim(attackerEl, targetEl, selection.minionId, ref);
     game.attack(idx, selection.minionId, ref);
   }
   selection = null;
@@ -259,6 +300,10 @@ function skipOptionalTarget() {
 
 function afterAction() {
   render();
+  if (pendingAttackAnim) {
+    applyAttackAnimation(pendingAttackAnim);
+    pendingAttackAnim = null;
+  }
   if (gameMode === 'online') sendState();
   if (game.gameOver) showGameOver();
 }
@@ -400,13 +445,22 @@ function minionHtml(minion, owner, targetable, extraClasses) {
   const classes = ['minion', ...extraClasses];
   if (minion.taunt) classes.push('taunt');
   if (minion.divineShield) classes.push('divine-shield');
+  if (minion.frozen) classes.push('frozen');
+  if (minion.stealth) classes.push('stealthed');
   if (targetable) classes.push('targetable');
   const role = owner === 0 ? 'own-minion' : 'enemy-minion';
+  const stateBadges = [];
+  if (minion.frozen) stateBadges.push('<span class="state-badge" title="빙결: 이번 공격 기회를 쓸 수 없습니다">❄️</span>');
+  if (minion.stealth) stateBadges.push('<span class="state-badge" title="은신: 상대에게 보이지 않습니다">🌫️</span>');
   return `<div class="${classes.join(' ')}" data-role="${role}" data-minion-id="${minion.id}" style="--cat-color:${cat.color}" title="${escapeHtml(cat.label)}">
     <div class="minion-cat-badge">${cat.icon}</div>
+    ${stateBadges.length ? `<div class="minion-state-badges">${stateBadges.join('')}</div>` : ''}
     <div class="minion-art">${def.art || ''}</div>
     <div class="minion-name">${escapeHtml(def.name)}</div>
-    <div class="minion-stats"><span class="atk">${minion.attack}</span><span class="hp">${minion.health}</span></div>
+    <div class="minion-stats">
+      <span class="atk" title="공격력">⚔️${minion.attack}</span>
+      <span class="hp" title="체력">❤️${minion.health}</span>
+    </div>
   </div>`;
 }
 
@@ -417,10 +471,10 @@ function handCardHtml(entry, i, playable) {
   if (!playable) classes.push('disabled');
   if (selection && selection.type === 'card' && selection.handIndex === i) classes.push('selected');
   const stats = def.type === 'minion'
-    ? `<div class="minion-stats"><span class="atk">${def.attack}</span><span class="hp">${def.health}</span></div>`
+    ? `<div class="minion-stats"><span class="atk" title="공격력">⚔️${def.attack}</span><span class="hp" title="체력">❤️${def.health}</span></div>`
     : '';
   return `<div class="${classes.join(' ')}" data-role="hand-card" data-hand-index="${i}" style="--cat-color:${cat.color}">
-    <div class="cost-badge">${def.cost}</div>
+    <div class="cost-badge" title="마나 코스트">${def.cost}</div>
     <div class="cat-badge" title="${escapeHtml(cat.label)}">${cat.icon}</div>
     <div class="card-art">${def.art || ''}</div>
     <div class="card-name">${escapeHtml(def.name)}</div>
@@ -461,7 +515,8 @@ function render() {
     Array(opp.hand.length).fill('<div class="card card-back"></div>').join('');
 
   document.getElementById('opponent-board').innerHTML =
-    opp.board.map(m => minionHtml(m, 1, targetable({ kind: 'minion', playerIdx: oppIdx, id: m.id }), [])).join('');
+    opp.board.filter(m => !m.stealth)
+      .map(m => minionHtml(m, 1, targetable({ kind: 'minion', playerIdx: oppIdx, id: m.id }), [])).join('');
 
   document.getElementById('player-board').innerHTML =
     me.board.map(m => {

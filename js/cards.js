@@ -12,6 +12,10 @@ export const CATEGORY_META = {
   spell_heal:    { label: '회복',          color: '#d9738f', icon: '💗' },
   spell_draw:    { label: '카드 뽑기',     color: '#4fc9c9', icon: '📘' },
   spell_buff:    { label: '강화',          color: '#cf9d3f', icon: '🌟' },
+  spell_summon:  { label: '소환',          color: '#7a5cc9', icon: '🐾' },
+  freeze:        { label: '빙결',          color: '#5ec8e8', icon: '❄️' },
+  stealth:       { label: '은신',          color: '#6c6f93', icon: '🌫️' },
+  silence:       { label: '침묵',          color: '#8a8a8a', icon: '🔇' },
 };
 
 export const CARD_DB = [
@@ -121,6 +125,57 @@ export const CARD_DB = [
     text: '아군 미니언에게 +2/+2를 부여합니다.',
     requiresTarget: true, targetType: 'friendly_minion',
     spellEffect: (game, casterIdx, target) => { game.buffMinion(target, 2, 2); } },
+
+  // ---- 은신 ----
+  { id: 'stealth_scout', name: '은신 정찰병', cost: 2, type: 'minion', attack: 2, health: 1, copies: 1,
+    keywords: { stealth: true }, category: 'stealth', art: '🥷', text: '은신' },
+  { id: 'shadowstalker', name: '어둠추적자', cost: 4, type: 'minion', attack: 5, health: 3, copies: 1,
+    keywords: { stealth: true }, category: 'stealth', art: '🦇', text: '은신' },
+
+  // ---- 빙결 ----
+  { id: 'frost_elemental', name: '서리 정령', cost: 4, type: 'minion', attack: 3, health: 3, copies: 1,
+    category: 'freeze', art: '❄️',
+    text: '전투의 함성: 대상 적 미니언을 얼립니다.',
+    requiresTarget: true, targetType: 'enemy_minion',
+    battlecry: (game, casterIdx, target) => { game.freezeCharacter(target); } },
+  { id: 'ice_archer', name: '얼음 궁수', cost: 3, type: 'minion', attack: 2, health: 3, copies: 1,
+    category: 'freeze', art: '🧊',
+    text: '전투의 함성: 대상 적 미니언에게 피해를 2 주고 얼립니다.',
+    requiresTarget: true, targetType: 'enemy_minion',
+    battlecry: (game, casterIdx, target) => { game.damageCharacter(target, 2); game.freezeCharacter(target); } },
+  { id: 'chains_of_frost', name: '빙결의 사슬', cost: 2, type: 'spell', copies: 1,
+    category: 'freeze', art: '❄️',
+    text: '대상 적 미니언을 얼립니다.',
+    requiresTarget: true, targetType: 'enemy_minion',
+    spellEffect: (game, casterIdx, target) => { game.freezeCharacter(target); } },
+
+  // ---- 침묵 ----
+  { id: 'silence_owl', name: '침묵의 부엉이', cost: 2, type: 'minion', attack: 1, health: 3, copies: 1,
+    category: 'silence', art: '🦉',
+    text: '전투의 함성: 대상 미니언을 침묵시킵니다.',
+    requiresTarget: true, targetType: 'any_minion',
+    battlecry: (game, casterIdx, target) => { game.silenceMinion(target); } },
+  { id: 'silencing_prayer', name: '침묵의 기도', cost: 1, type: 'spell', copies: 1,
+    category: 'silence', art: '🔇',
+    text: '대상 미니언을 침묵시킵니다.',
+    requiresTarget: true, targetType: 'any_minion',
+    spellEffect: (game, casterIdx, target) => { game.silenceMinion(target); } },
+
+  // ---- 소환(토큰) ----
+  { id: 'wolf_trainer', name: '늑대 조련사', cost: 2, type: 'minion', attack: 2, health: 2, copies: 1,
+    category: 'battlecry', art: '🐺',
+    text: '전투의 함성: 1/1 늑대 토큰을 소환합니다.',
+    battlecry: (game, casterIdx) => { game.summonToken(casterIdx, 'wolf_token'); } },
+  { id: 'horn_of_summoning', name: '소환의 뿔피리', cost: 3, type: 'spell', copies: 1,
+    category: 'spell_summon', art: '🐾',
+    text: '3/3 곰 토큰을 소환합니다.',
+    spellEffect: (game, casterIdx) => { game.summonToken(casterIdx, 'bear_token'); } },
+
+  // ---- 토큰 (덱에는 들어가지 않고 소환 효과로만 등장) ----
+  { id: 'wolf_token', name: '늑대', cost: 1, type: 'minion', attack: 1, health: 1, copies: 0,
+    category: 'vanilla', art: '🐺', text: '' },
+  { id: 'bear_token', name: '곰', cost: 3, type: 'minion', attack: 3, health: 3, copies: 0,
+    category: 'vanilla', art: '🐻', text: '' },
 ];
 
 export function getCardDef(id) {
@@ -133,11 +188,12 @@ export function getCategoryMeta(category) {
   return CATEGORY_META[category] || CATEGORY_META.vanilla;
 }
 
-// 공유 카드 풀을 이용해 30장짜리 덱을 구성합니다 (카드 id 배열, 셔플됨).
+// 공유 카드 풀을 이용해 덱을 구성합니다 (카드 id 배열, 셔플됨).
+// copies: 0인 카드(토큰)는 소환 효과로만 등장하며 덱에는 들어가지 않습니다.
 export function buildDeck() {
   const deck = [];
   for (const card of CARD_DB) {
-    const copies = card.copies || 1;
+    const copies = card.copies === undefined ? 1 : card.copies;
     for (let i = 0; i < copies; i++) deck.push(card.id);
   }
   shuffle(deck);

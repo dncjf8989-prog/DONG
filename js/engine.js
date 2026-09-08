@@ -63,7 +63,8 @@ export class Game {
     player.heroPowerUsed = false;
     for (const minion of player.board) {
       minion.summoningSick = false;
-      minion.canAttack = true;
+      minion.canAttack = !minion.frozen;
+      minion.frozen = false;
     }
     this.currentPlayer = idx;
     this.drawCard(idx);
@@ -119,17 +120,23 @@ export class Game {
     if (!def.requiresTarget) return [];
     const me = this.players[playerIdx];
     const opp = this.players[1 - playerIdx];
+    const oppVisible = opp.board.filter(m => !m.stealth);
     const targets = [];
     if (def.targetType === 'any') {
       targets.push({ kind: 'hero', playerIdx });
       targets.push({ kind: 'hero', playerIdx: 1 - playerIdx });
       for (const m of me.board) targets.push({ kind: 'minion', playerIdx, id: m.id });
-      for (const m of opp.board) targets.push({ kind: 'minion', playerIdx: 1 - playerIdx, id: m.id });
+      for (const m of oppVisible) targets.push({ kind: 'minion', playerIdx: 1 - playerIdx, id: m.id });
     } else if (def.targetType === 'friendly_minion') {
       for (const m of me.board) targets.push({ kind: 'minion', playerIdx, id: m.id });
     } else if (def.targetType === 'enemy') {
       targets.push({ kind: 'hero', playerIdx: 1 - playerIdx });
-      for (const m of opp.board) targets.push({ kind: 'minion', playerIdx: 1 - playerIdx, id: m.id });
+      for (const m of oppVisible) targets.push({ kind: 'minion', playerIdx: 1 - playerIdx, id: m.id });
+    } else if (def.targetType === 'enemy_minion') {
+      for (const m of oppVisible) targets.push({ kind: 'minion', playerIdx: 1 - playerIdx, id: m.id });
+    } else if (def.targetType === 'any_minion') {
+      for (const m of me.board) targets.push({ kind: 'minion', playerIdx, id: m.id });
+      for (const m of oppVisible) targets.push({ kind: 'minion', playerIdx: 1 - playerIdx, id: m.id });
     }
     return targets;
   }
@@ -164,6 +171,9 @@ export class Game {
         taunt: !!(def.keywords && def.keywords.taunt),
         divineShield: !!(def.keywords && def.keywords.divineShield),
         charge: !!(def.keywords && def.keywords.charge),
+        stealth: !!(def.keywords && def.keywords.stealth),
+        frozen: false,
+        silenced: false,
         summoningSick: !(def.keywords && def.keywords.charge),
         canAttack: !!(def.keywords && def.keywords.charge),
       };
@@ -199,8 +209,9 @@ export class Game {
 
   getValidAttackTargets(playerIdx) {
     const opp = this.players[1 - playerIdx];
-    const taunts = opp.board.filter(m => m.taunt);
-    const pool = taunts.length > 0 ? taunts : opp.board;
+    const visible = opp.board.filter(m => !m.stealth);
+    const taunts = visible.filter(m => m.taunt);
+    const pool = taunts.length > 0 ? taunts : visible;
     const targets = pool.map(m => ({ kind: 'minion', playerIdx: 1 - playerIdx, id: m.id }));
     if (taunts.length === 0) targets.push({ kind: 'hero', playerIdx: 1 - playerIdx });
     return targets;
@@ -223,6 +234,7 @@ export class Game {
     if (!isValid) return { ok: false, reason: '도발 미니언을 먼저 공격해야 합니다.' };
 
     attacker.canAttack = false;
+    attacker.stealth = false;
 
     if (targetRef.kind === 'hero') {
       this.damageCharacter(targetRef, attacker.attack);
@@ -276,6 +288,49 @@ export class Game {
     minion.health += hp;
   }
 
+  freezeCharacter(ref) {
+    if (!ref || ref.kind !== 'minion') return;
+    const minion = this.findMinion(ref.playerIdx, ref.id);
+    if (!minion) return;
+    minion.frozen = true;
+    minion.canAttack = false;
+  }
+
+  silenceMinion(ref) {
+    if (!ref || ref.kind !== 'minion') return;
+    const minion = this.findMinion(ref.playerIdx, ref.id);
+    if (!minion) return;
+    minion.taunt = false;
+    minion.divineShield = false;
+    minion.charge = false;
+    minion.stealth = false;
+    minion.frozen = false;
+    minion.silenced = true;
+  }
+
+  summonToken(playerIdx, tokenCardId) {
+    const player = this.players[playerIdx];
+    if (player.board.length >= MAX_BOARD_SIZE) return;
+    const def = getCardDef(tokenCardId);
+    const minion = {
+      id: this.nextId++,
+      cardId: def.id,
+      attack: def.attack,
+      health: def.health,
+      maxHealth: def.health,
+      taunt: !!(def.keywords && def.keywords.taunt),
+      divineShield: !!(def.keywords && def.keywords.divineShield),
+      charge: !!(def.keywords && def.keywords.charge),
+      stealth: !!(def.keywords && def.keywords.stealth),
+      frozen: false,
+      silenced: false,
+      summoningSick: !(def.keywords && def.keywords.charge),
+      canAttack: !!(def.keywords && def.keywords.charge),
+    };
+    player.board.push(minion);
+    this.logEvent(`${player.name}이(가) ${def.name}을(를) 소환했습니다.`);
+  }
+
   damageAllMinions(amount) {
     for (const player of this.players) {
       for (const minion of player.board) {
@@ -292,7 +347,7 @@ export class Game {
       for (const minion of dead) {
         const def = getCardDef(minion.cardId);
         this.logEvent(`${def.name}이(가) 파괴되었습니다.`);
-        if (def.deathrattle) def.deathrattle(this, player.idx, minion);
+        if (def.deathrattle && !minion.silenced) def.deathrattle(this, player.idx, minion);
       }
     }
   }

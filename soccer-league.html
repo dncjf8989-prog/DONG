@@ -727,11 +727,26 @@ function currentUserRank() {
 function applyTraining() {
   const targetPos = state.training === "attack" ? ["FW", "MF"] : state.training === "defense" ? ["DF", "GK"] : null;
   if (targetPos) {
+    const improved = [];
     state.squad.filter(p => targetPos.includes(p.pos)).forEach(p => {
-      if (chance(0.22) && p.rating < 95) p.rating += 1;
+      if (chance(0.22) && p.rating < 95) {
+        p.rating += 1;
+        improved.push(p);
+      }
     });
+    const label = state.training === "attack" ? "공격 훈련" : "수비 훈련";
+    if (improved.length) {
+      addNews(`[${label}] ${improved.map(p => `${p.name}(${p.rating - 1}→${p.rating})`).join(", ")} 능력치 상승!`, true);
+    } else {
+      addNews(`[${label}] 이번 라운드는 눈에 띄는 성장이 없었다.`, false);
+    }
   } else if (state.training === "fitness") {
-    state.squad.forEach(p => { p.stamina = clampNum(p.stamina + 10, 0, 100); });
+    let boosted = 0;
+    state.squad.forEach(p => {
+      if (p.stamina < 100) boosted++;
+      p.stamina = clampNum(p.stamina + 10, 0, 100);
+    });
+    addNews(`[체력 훈련] 스쿼드 전원의 체력을 +10 회복시켰다${boosted ? ` (${boosted}명 회복)` : ""}.`, true);
   }
 }
 

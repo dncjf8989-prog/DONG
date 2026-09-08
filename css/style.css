@@ -127,7 +127,8 @@ body {
 .mana-text { margin-left: 6px; font-weight: bold; }
 
 #controls { display: flex; gap: 8px; }
-#end-turn-btn, #restart-btn, #skip-target-btn {
+#end-turn-btn, #restart-btn, #skip-target-btn,
+#handoff-ack-btn, #mode-ai-btn, #mode-hotseat-btn, #main-menu-btn {
   padding: 10px 18px;
   border-radius: 8px;
   border: none;
@@ -136,6 +137,7 @@ body {
   font-weight: bold;
   cursor: pointer;
 }
+.ghost-btn { background: linear-gradient(160deg, #666, #333) !important; }
 #end-turn-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 #skip-target-btn { background: linear-gradient(160deg, #666, #333); }
 .hidden { display: none !important; }
@@ -293,15 +295,16 @@ body {
   opacity: 0.85;
 }
 
-#game-over-overlay {
+#game-over-overlay, #handoff-overlay, #mode-select-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10;
 }
+#game-over-overlay { background: rgba(0, 0, 0, 0.75); }
+#handoff-overlay, #mode-select-overlay { background: #0a1420; }
 #game-over-box {
   background: #1c2733;
   border: 2px solid #ffd479;
@@ -309,4 +312,8 @@ body {
   padding: 30px 50px;
   text-align: center;
 }
-#game-over-text { font-size: 26px; margin-bottom: 16px; color: #ffd479; font-weight: bold; }
+#game-over-text, #handoff-text, #mode-select-text { font-size: 26px; margin-bottom: 16px; color: #ffd479; font-weight: bold; }
+.overlay-sub { max-width: 320px; margin: 0 auto 20px; font-size: 12.5px; line-height: 1.5; color: #9fb0c2; }
+.overlay-actions { display: flex; justify-content: center; gap: 10px; }
+.overlay-actions-col { flex-direction: column; }
+.overlay-actions-col button { padding: 14px 22px; }

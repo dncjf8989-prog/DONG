@@ -15,9 +15,9 @@ const MAX_HAND_SIZE = 10;
 const STARTING_HEALTH = 30;
 
 export class Game {
-  constructor() {
+  constructor(player1Name = '플레이어', player2Name = 'AI') {
     this.nextId = 1;
-    this.players = [this.createPlayer(0, '플레이어'), this.createPlayer(1, 'AI')];
+    this.players = [this.createPlayer(0, player1Name), this.createPlayer(1, player2Name)];
     this.currentPlayer = 0;
     this.turnNumber = 0;
     this.gameOver = false;

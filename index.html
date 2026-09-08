@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>마나 듀얼 - 카드 대전 초안</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="app">
+  <header id="top-bar">
+    <h1>마나 듀얼</h1>
+    <div id="turn-indicator">당신의 턴</div>
+  </header>
+
+  <section id="opponent-area">
+    <div id="opponent-hero" class="hero" data-role="enemy-hero">
+      <div class="hero-name">AI</div>
+      <div class="hero-health">30</div>
+    </div>
+    <div id="opponent-hand" class="hand hand-back"></div>
+    <div id="opponent-board" class="board"></div>
+  </section>
+
+  <section id="middle-area">
+    <div id="log-panel"></div>
+  </section>
+
+  <section id="player-area">
+    <div id="player-board" class="board"></div>
+    <div id="bottom-row">
+      <div id="player-hero" class="hero" data-role="own-hero">
+        <div class="hero-name">플레이어</div>
+        <div class="hero-health">30</div>
+        <button class="hero-power-btn" data-role="hero-power">화염 손가락<br/>(2)</button>
+      </div>
+      <div id="mana-crystals"></div>
+      <div id="controls">
+        <button id="skip-target-btn" class="hidden" data-role="skip-target">대상 없이 사용</button>
+        <button id="end-turn-btn">턴 종료</button>
+      </div>
+    </div>
+    <div id="player-hand" class="hand"></div>
+  </section>
+
+  <div id="game-over-overlay" class="hidden">
+    <div id="game-over-box">
+      <div id="game-over-text"></div>
+      <button id="restart-btn">다시 시작</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

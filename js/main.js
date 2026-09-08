@@ -5,7 +5,15 @@ import { runAiTurn } from './ai.js';
 
 let game = null;
 let selection = null; // {type:'card', handIndex, def} | {type:'attack', minionId} | {type:'heropower'}
-let gameMode = 'ai'; // 'ai' | 'hotseat'
+let gameMode = 'ai'; // 'ai' | 'hotseat' | 'online'
+
+// ---- 온라인 대전 상태 ----
+let myClientId = null;
+let roomCode = null;
+let mySeat = null; // 온라인 모드에서 내 좌석(0|1)
+let roomMeta = null; // {hostId, guestId}
+let roomUnsub = null;
+let dbPromise = null;
 
 const appEl = document.getElementById('app');
 const endTurnBtn = document.getElementById('end-turn-btn');
@@ -14,9 +22,28 @@ const overlayEl = document.getElementById('game-over-overlay');
 const overlayTextEl = document.getElementById('game-over-text');
 const modeSelectEl = document.getElementById('mode-select-overlay');
 const handoffEl = document.getElementById('handoff-overlay');
+const onlineMenuEl = document.getElementById('online-menu-overlay');
+const onlineWaitingEl = document.getElementById('online-waiting-overlay');
+const onlineErrorEl = document.getElementById('online-error');
 
 function activeIdx() {
-  return gameMode === 'hotseat' ? game.currentPlayer : 0;
+  if (gameMode === 'online') return mySeat;
+  if (gameMode === 'hotseat') return game.currentPlayer;
+  return 0;
+}
+
+function isMyTurn() {
+  if (gameMode === 'ai') return game.currentPlayer === 0;
+  if (gameMode === 'online') return game.currentPlayer === mySeat;
+  return true;
+}
+
+function hideAllOverlays() {
+  overlayEl.classList.add('hidden');
+  modeSelectEl.classList.add('hidden');
+  handoffEl.classList.add('hidden');
+  onlineMenuEl.classList.add('hidden');
+  onlineWaitingEl.classList.add('hidden');
 }
 
 function newGame(mode) {
@@ -24,10 +51,178 @@ function newGame(mode) {
   game = mode === 'hotseat' ? new Game('플레이어 1', '플레이어 2') : new Game('플레이어', 'AI');
   game.start();
   selection = null;
-  overlayEl.classList.add('hidden');
-  modeSelectEl.classList.add('hidden');
-  handoffEl.classList.add('hidden');
+  hideAllOverlays();
   render();
+}
+
+async function getDb() {
+  if (typeof window.claude === 'undefined' || !window.claude.use) return null;
+  if (!dbPromise) dbPromise = window.claude.use('db');
+  try { return await dbPromise; } catch (e) { return null; }
+}
+
+function getClientId() {
+  if (myClientId) return myClientId;
+  try {
+    myClientId = localStorage.getItem('mana-duel-client-id');
+    if (!myClientId) {
+      myClientId = (crypto.randomUUID ? crypto.randomUUID() : `c-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      localStorage.setItem('mana-duel-client-id', myClientId);
+    }
+  } catch (e) {
+    myClientId = `c-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+  return myClientId;
+}
+
+function randomRoomCode() {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // 혼동되는 0/O, 1/I 제외
+  let out = '';
+  for (let i = 0; i < 6; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
+function serializeGame(g) {
+  return JSON.parse(JSON.stringify(g));
+}
+
+function hydrateGame(data) {
+  return Object.assign(Object.create(Game.prototype), data);
+}
+
+function saveOnlineSession() {
+  try {
+    localStorage.setItem('mana-duel-online-session', JSON.stringify({ roomCode, mySeat }));
+  } catch (e) { /* 저장 실패는 무시 (재접속 편의 기능일 뿐) */ }
+}
+
+function clearOnlineSession() {
+  try { localStorage.removeItem('mana-duel-online-session'); } catch (e) {}
+}
+
+function showOnlineError(msg) {
+  onlineErrorEl.textContent = msg;
+  onlineErrorEl.classList.remove('hidden');
+}
+
+async function pushRoomState(g, statusOverride) {
+  if (!roomMeta) return;
+  const db = await getDb();
+  if (!db) return;
+  await db.doc('rooms/' + roomCode).set({
+    hostId: roomMeta.hostId,
+    guestId: roomMeta.guestId,
+    status: statusOverride || 'active',
+    state: serializeGame(g),
+  });
+}
+
+function subscribeRoom(code) {
+  if (roomUnsub) { roomUnsub(); roomUnsub = null; }
+  getDb().then(db => {
+    if (!db) { showOnlineError('이 환경에서는 온라인 기능을 사용할 수 없습니다.'); return; }
+    roomUnsub = db.doc('rooms/' + code).onSnapshot(async (snap) => {
+      if (!snap.exists) {
+        showOnlineError('방을 찾을 수 없습니다. 코드를 확인해주세요.');
+        clearOnlineSession();
+        return;
+      }
+      const data = snap.data();
+      roomMeta = { hostId: data.hostId, guestId: data.guestId };
+
+      if (data.status === 'waiting') {
+        if (mySeat === 0 && data.guestId && !data.state) {
+          const g = new Game('플레이어 1', '플레이어 2');
+          g.start();
+          await pushRoomState(g, 'active');
+          return;
+        }
+        document.getElementById('online-waiting-title').textContent =
+          mySeat === 0 ? '상대를 기다리는 중...' : '방장이 게임을 준비하는 중...';
+        document.getElementById('online-room-code').textContent = mySeat === 0 ? code : '';
+        hideAllOverlays();
+        onlineWaitingEl.classList.remove('hidden');
+        return;
+      }
+
+      if (data.status === 'active' && data.state) {
+        gameMode = 'online';
+        roomCode = code;
+        game = hydrateGame(data.state);
+        selection = null;
+        hideAllOverlays();
+        render();
+        if (game.gameOver) showGameOver();
+      }
+    }, (err) => {
+      showOnlineError(`연결 오류가 발생했습니다 (${err.code}). 페이지를 새로고침해 재접속해보세요.`);
+    });
+  });
+}
+
+async function createOnlineRoom() {
+  onlineErrorEl.classList.add('hidden');
+  const db = await getDb();
+  if (!db) { showOnlineError('이 환경에서는 온라인 기능을 사용할 수 없습니다.'); return; }
+  const clientId = getClientId();
+  const code = randomRoomCode();
+  roomCode = code;
+  mySeat = 0;
+  await db.doc('rooms/' + code).set({ hostId: clientId, guestId: null, status: 'waiting', state: null });
+  saveOnlineSession();
+  subscribeRoom(code);
+}
+
+async function joinOnlineRoom(codeRaw) {
+  onlineErrorEl.classList.add('hidden');
+  const code = (codeRaw || '').trim().toUpperCase();
+  if (code.length < 4) { showOnlineError('방 코드를 입력해주세요.'); return; }
+  const db = await getDb();
+  if (!db) { showOnlineError('이 환경에서는 온라인 기능을 사용할 수 없습니다.'); return; }
+  const clientId = getClientId();
+  const ref = db.doc('rooms/' + code);
+  const snap = await ref.get();
+  if (!snap.exists) { showOnlineError('방을 찾을 수 없습니다. 코드를 확인해주세요.'); return; }
+  const data = snap.data();
+  if (data.hostId === clientId) {
+    mySeat = 0;
+  } else if (data.guestId === clientId) {
+    mySeat = 1;
+  } else if (!data.guestId) {
+    await ref.update({ guestId: clientId });
+    mySeat = 1;
+  } else {
+    showOnlineError('이미 정원이 찬 방입니다.');
+    return;
+  }
+  roomCode = code;
+  saveOnlineSession();
+  subscribeRoom(code);
+}
+
+function tryResumeOnlineSession() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('mana-duel-online-session') || 'null'); } catch (e) {}
+  if (!saved || !saved.roomCode) return false;
+  roomCode = saved.roomCode;
+  mySeat = saved.mySeat;
+  getClientId();
+  hideAllOverlays();
+  document.getElementById('online-waiting-title').textContent = '재접속하는 중...';
+  document.getElementById('online-room-code').textContent = '';
+  onlineWaitingEl.classList.remove('hidden');
+  subscribeRoom(roomCode);
+  return true;
+}
+
+function leaveOnlineRoom() {
+  if (roomUnsub) { roomUnsub(); roomUnsub = null; }
+  gameMode = 'ai';
+  game = null;
+  roomCode = null;
+  mySeat = null;
+  roomMeta = null;
+  clearOnlineSession();
 }
 
 function currentValidTargets() {
@@ -121,11 +316,13 @@ function skipOptionalTarget() {
 
 function afterAction() {
   render();
+  if (gameMode === 'online') pushRoomState(game);
   if (game.gameOver) showGameOver();
 }
 
 function showGameOver() {
   overlayTextEl.textContent = `${game.players[game.winner].name} 승리!`;
+  restartBtn.classList.toggle('hidden', gameMode === 'online');
   overlayEl.classList.remove('hidden');
 }
 
@@ -136,7 +333,7 @@ function showHandoff() {
 
 appEl.addEventListener('click', (e) => {
   if (!game || game.gameOver) return;
-  if (gameMode === 'ai' && game.currentPlayer !== 0) return;
+  if (!isMyTurn()) return;
 
   const skipEl = e.target.closest('[data-role="skip-target"]');
   if (skipEl) { skipOptionalTarget(); return; }
@@ -177,9 +374,16 @@ appEl.addEventListener('click', (e) => {
 
 endTurnBtn.addEventListener('click', () => {
   if (!game || game.gameOver) return;
-  if (gameMode === 'ai' && game.currentPlayer !== 0) return;
+  if (!isMyTurn()) return;
   selection = null;
   game.endTurn();
+
+  if (gameMode === 'online') {
+    render();
+    pushRoomState(game);
+    if (game.gameOver) showGameOver();
+    return;
+  }
 
   if (gameMode === 'hotseat') {
     render();
@@ -197,16 +401,48 @@ endTurnBtn.addEventListener('click', () => {
   }, 700);
 });
 
-restartBtn.addEventListener('click', () => newGame(gameMode));
+restartBtn.addEventListener('click', () => {
+  if (gameMode === 'online') return; // 온라인 대전은 재시작 대신 방을 나가야 함
+  newGame(gameMode);
+});
 document.getElementById('main-menu-btn').addEventListener('click', () => {
+  if (gameMode === 'online') leaveOnlineRoom();
   game = null;
-  overlayEl.classList.add('hidden');
+  hideAllOverlays();
   modeSelectEl.classList.remove('hidden');
 });
 document.getElementById('mode-ai-btn').addEventListener('click', () => newGame('ai'));
 document.getElementById('mode-hotseat-btn').addEventListener('click', () => newGame('hotseat'));
 document.getElementById('handoff-ack-btn').addEventListener('click', () => {
   handoffEl.classList.add('hidden');
+});
+
+document.getElementById('mode-online-btn').addEventListener('click', () => {
+  onlineErrorEl.classList.add('hidden');
+  document.getElementById('online-join-form').classList.add('hidden');
+  document.getElementById('online-code-input').value = '';
+  hideAllOverlays();
+  onlineMenuEl.classList.remove('hidden');
+});
+document.getElementById('online-back-btn').addEventListener('click', () => {
+  hideAllOverlays();
+  modeSelectEl.classList.remove('hidden');
+});
+document.getElementById('online-create-btn').addEventListener('click', createOnlineRoom);
+document.getElementById('online-join-toggle-btn').addEventListener('click', () => {
+  document.getElementById('online-join-form').classList.remove('hidden');
+  document.getElementById('online-code-input').focus();
+});
+document.getElementById('online-join-btn').addEventListener('click', () => {
+  joinOnlineRoom(document.getElementById('online-code-input').value);
+});
+document.getElementById('online-code-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') joinOnlineRoom(document.getElementById('online-code-input').value);
+});
+document.getElementById('online-cancel-btn').addEventListener('click', () => {
+  leaveOnlineRoom();
+  hideAllOverlays();
+  modeSelectEl.classList.remove('hidden');
 });
 
 // ---- 렌더링 ----
@@ -266,7 +502,7 @@ function render() {
   const validTargets = currentValidTargets();
   const targetable = (ref) => isRefInList(ref, validTargets);
 
-  appEl.classList.toggle('opponent-turn', (gameMode === 'ai' && game.currentPlayer !== 0) || game.gameOver);
+  appEl.classList.toggle('opponent-turn', !isMyTurn() || game.gameOver);
 
   const heroPowerClasses = ['hero-power-btn'];
   if (me.heroPowerUsed || me.mana.current < HERO_POWER.cost) heroPowerClasses.push('disabled');
@@ -319,5 +555,7 @@ function render() {
   document.getElementById('log-panel').innerHTML =
     game.log.slice(-8).map(l => `<div class="log-line">${escapeHtml(l)}</div>`).join('');
 
-  endTurnBtn.disabled = (gameMode === 'ai' && game.currentPlayer !== 0) || game.gameOver;
+  endTurnBtn.disabled = !isMyTurn() || game.gameOver;
 }
+
+tryResumeOnlineSession();

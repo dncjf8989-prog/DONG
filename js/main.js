@@ -1,6 +1,6 @@
 // UI 렌더링과 사용자 입력 처리
 import { Game, HERO_POWER } from './engine.js';
-import { getCardDef } from './cards.js';
+import { getCardDef, getCategoryMeta } from './cards.js';
 import { runAiTurn } from './ai.js';
 
 let game = null;
@@ -174,32 +174,33 @@ function escapeHtml(s) {
 
 function minionHtml(minion, owner, targetable, extraClasses) {
   const def = getCardDef(minion.cardId);
+  const cat = getCategoryMeta(def.category);
   const classes = ['minion', ...extraClasses];
   if (minion.taunt) classes.push('taunt');
   if (minion.divineShield) classes.push('divine-shield');
   if (targetable) classes.push('targetable');
   const role = owner === 0 ? 'own-minion' : 'enemy-minion';
-  const badges = [];
-  if (minion.taunt) badges.push('🛡');
-  if (minion.divineShield) badges.push('✨');
-  if (minion.charge) badges.push('⚡');
-  return `<div class="${classes.join(' ')}" data-role="${role}" data-minion-id="${minion.id}">
+  return `<div class="${classes.join(' ')}" data-role="${role}" data-minion-id="${minion.id}" style="--cat-color:${cat.color}" title="${escapeHtml(cat.label)}">
+    <div class="minion-cat-badge">${cat.icon}</div>
+    <div class="minion-art">${def.art || ''}</div>
     <div class="minion-name">${escapeHtml(def.name)}</div>
-    <div class="minion-badges">${badges.join(' ')}</div>
     <div class="minion-stats"><span class="atk">${minion.attack}</span><span class="hp">${minion.health}</span></div>
   </div>`;
 }
 
 function handCardHtml(entry, i, playable) {
   const def = getCardDef(entry.cardId);
-  const classes = ['card', 'in-hand'];
+  const cat = getCategoryMeta(def.category);
+  const classes = ['card', 'in-hand', `type-${def.type}`];
   if (!playable) classes.push('disabled');
   if (selection && selection.type === 'card' && selection.handIndex === i) classes.push('selected');
   const stats = def.type === 'minion'
     ? `<div class="minion-stats"><span class="atk">${def.attack}</span><span class="hp">${def.health}</span></div>`
     : '';
-  return `<div class="${classes.join(' ')}" data-role="hand-card" data-hand-index="${i}">
+  return `<div class="${classes.join(' ')}" data-role="hand-card" data-hand-index="${i}" style="--cat-color:${cat.color}">
     <div class="cost-badge">${def.cost}</div>
+    <div class="cat-badge" title="${escapeHtml(cat.label)}">${cat.icon}</div>
+    <div class="card-art">${def.art || ''}</div>
     <div class="card-name">${escapeHtml(def.name)}</div>
     <div class="card-text">${escapeHtml(def.text || '')}</div>
     ${stats}

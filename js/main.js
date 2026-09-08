@@ -1,6 +1,6 @@
 // UI 렌더링과 사용자 입력 처리
 import { Game, HERO_POWER } from './engine.js';
-import { getCardDef, getCategoryMeta } from './cards.js';
+import { getCardDef, getCategoryMeta, KEYWORD_GLOSSARY } from './cards.js';
 import { runAiTurn } from './ai.js';
 
 let game = null;
@@ -431,6 +431,23 @@ document.getElementById('online-cancel-btn').addEventListener('click', () => {
   leaveOnlineRoom();
   hideAllOverlays();
   modeSelectEl.classList.remove('hidden');
+});
+
+document.getElementById('glossary-list').innerHTML = KEYWORD_GLOSSARY.map(k => `
+  <div class="glossary-item">
+    <div class="glossary-icon">${k.icon}</div>
+    <div>
+      <div class="glossary-name">${escapeHtml(k.name)}</div>
+      <div class="glossary-desc">${escapeHtml(k.desc)}</div>
+    </div>
+  </div>
+`).join('');
+
+document.getElementById('glossary-btn').addEventListener('click', () => {
+  document.getElementById('glossary-overlay').classList.remove('hidden');
+});
+document.getElementById('glossary-close-btn').addEventListener('click', () => {
+  document.getElementById('glossary-overlay').classList.add('hidden');
 });
 
 // ---- 렌더링 ----

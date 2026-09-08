@@ -339,6 +339,34 @@ export class Game {
     }
   }
 
+  damageEnemyBoard(playerIdx, amount) {
+    const opp = this.players[1 - playerIdx];
+    for (const minion of [...opp.board]) {
+      this.damageCharacter({ kind: 'minion', playerIdx: 1 - playerIdx, id: minion.id }, amount);
+    }
+  }
+
+  buffAllFriendly(playerIdx, atk, hp) {
+    const player = this.players[playerIdx];
+    for (const minion of player.board) {
+      this.buffMinion({ kind: 'minion', playerIdx, id: minion.id }, atk, hp);
+    }
+  }
+
+  returnToHand(ref) {
+    if (!ref || ref.kind !== 'minion') return;
+    const player = this.players[ref.playerIdx];
+    const minion = this.findMinion(ref.playerIdx, ref.id);
+    if (!minion) return;
+    player.board = player.board.filter(m => m.id !== ref.id);
+    if (player.hand.length < MAX_HAND_SIZE) {
+      player.hand.push({ instanceId: this.nextId++, cardId: minion.cardId });
+      this.logEvent(`${player.name}의 ${getCardDef(minion.cardId).name}이(가) 손으로 돌아갔습니다.`);
+    } else {
+      this.logEvent(`${player.name}의 손패가 가득 차 ${getCardDef(minion.cardId).name}이(가) 사라졌습니다.`);
+    }
+  }
+
   checkDeaths() {
     for (const player of this.players) {
       const dead = player.board.filter(m => m.health <= 0);

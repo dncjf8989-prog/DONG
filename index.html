@@ -19,7 +19,7 @@
       <div class="hero-health">30</div>
     </div>
     <div id="opponent-hand" class="hand hand-back"></div>
-    <div id="opponent-board" class="board"></div>
+    <div id="opponent-board" class="board" data-empty-label="상대 전장"></div>
   </section>
 
   <section id="middle-area">
@@ -27,12 +27,16 @@
   </section>
 
   <section id="player-area">
-    <div id="player-board" class="board"></div>
+    <div id="player-board" class="board" data-empty-label="내 전장"></div>
     <div id="bottom-row">
-      <div id="player-hero" class="hero" data-role="own-hero">
-        <div class="hero-name">플레이어</div>
-        <div class="hero-health">30</div>
-        <button class="hero-power-btn" data-role="hero-power">화염 손가락<br/>(2)</button>
+      <div class="hero-row">
+        <div id="player-hero" class="hero" data-role="own-hero">
+          <div class="hero-name">플레이어</div>
+          <div class="hero-health">30</div>
+        </div>
+        <button id="player-hero-power" class="hero-power-btn" data-role="hero-power" title="화염 손가락: 대상에게 피해를 1 줍니다.">
+          <span class="hp-icon">🔥</span><span class="hp-cost">2</span>
+        </button>
       </div>
       <div id="mana-crystals"></div>
       <div id="controls">

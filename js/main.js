@@ -252,10 +252,11 @@ function render() {
     <div id="player-hero" class="hero ${targetable({ kind: 'hero', playerIdx: 0 }) ? 'targetable' : ''}" data-role="own-hero">
       <div class="hero-name">${escapeHtml(p0.name)}</div>
       <div class="hero-health">${p0.hero.health}</div>
-      <button class="${heroPowerClasses.join(' ')}" data-role="hero-power" title="${escapeHtml(HERO_POWER.name)}: ${escapeHtml(HERO_POWER.text)}">
-        ${escapeHtml(HERO_POWER.name)}<br/>(${HERO_POWER.cost})
-      </button>
     </div>`;
+
+  const heroPowerBtn = document.getElementById('player-hero-power');
+  heroPowerBtn.className = heroPowerClasses.join(' ');
+  heroPowerBtn.title = `${HERO_POWER.name}: ${HERO_POWER.text}`;
 
   document.getElementById('mana-crystals').innerHTML =
     `${manaHtml(p0.mana)} <span class="mana-text">${p0.mana.current}/${p0.mana.max}</span>`;

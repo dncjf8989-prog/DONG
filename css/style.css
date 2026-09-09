@@ -217,6 +217,63 @@ body {
   padding: 6px 12px;
 }
 
+.cast-banner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(86%, 420px);
+  padding: 10px 20px 10px 12px;
+  border-radius: 999px;
+  background: linear-gradient(160deg, rgba(28, 20, 12, 0.94), rgba(14, 10, 6, 0.94));
+  border: 2px solid var(--cast-color, var(--arcane-bright));
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.5),
+    0 0 22px 2px var(--cast-color, var(--arcane-bright)),
+    0 10px 24px rgba(0,0,0,0.6);
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.8);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.cast-banner.hidden { display: none; }
+.cast-banner.showing {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+.cast-banner-icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 21px;
+  background: radial-gradient(circle at 35% 28%, rgba(255,255,255,0.5), transparent 65%), var(--cast-color, var(--arcane-bright));
+  box-shadow: 0 0 10px 1px var(--cast-color, var(--arcane-bright)), inset 0 2px 4px rgba(255,255,255,0.4);
+}
+.cast-banner-body { min-width: 0; text-align: left; }
+.cast-banner-title {
+  font-family: 'Cinzel', Georgia, serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--gold-bright);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cast-banner-text {
+  font-size: 11.5px;
+  color: var(--parchment);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+  line-height: 1.3;
+}
+
 .board {
   min-height: 120px;
   display: flex;
@@ -420,6 +477,33 @@ body {
   background-image:
     linear-gradient(160deg, #241a34, #140e20),
     linear-gradient(160deg, #dfe8f5, #9fb3d9 45%, #4a5a7a 100%);
+}
+.card.type-spell::before {
+  background: var(--arcane-bright);
+  box-shadow: 0 0 6px var(--arcane-bright);
+}
+.card.type-spell .card-art {
+  border-radius: 0;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  box-shadow: none;
+  outline: 3px solid #1a140c;
+  outline-offset: -3px;
+  background-image:
+    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.6), transparent 60%),
+    linear-gradient(135deg, var(--cat-color, var(--arcane)), var(--arcane) 120%);
+  filter: drop-shadow(0 0 8px var(--cat-color, var(--arcane)));
+}
+.card.type-spell .spell-tag {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--arcane-bright);
+  text-shadow: 0 0 4px rgba(140, 205, 240, 0.8), 0 1px 2px rgba(0,0,0,0.9);
+  z-index: 2;
 }
 .card.disabled { opacity: 0.45; cursor: not-allowed; filter: grayscale(0.4); }
 .card.selected { transform: translateY(-10px); box-shadow: 0 0 0 3px #ffe066, 0 8px 16px rgba(0,0,0,0.6); }

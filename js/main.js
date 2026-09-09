@@ -7,6 +7,9 @@ let game = null;
 let selection = null; // {type:'card', handIndex, def} | {type:'attack', minionId} | {type:'heropower'}
 let gameMode = 'ai'; // 'ai' | 'hotseat' | 'online'
 let pendingAttackAnim = null;
+let lastShownCastSeq = 0; // 주문/영웅 능력 사용 배너를 마지막으로 보여준 이벤트 순번
+let castBannerTimer = null;
+let castBannerHideTimer = null;
 
 // ---- 온라인 대전 상태 (WebRTC/PeerJS, 로그인·서버 저장소 불필요) ----
 let roomCode = null;
@@ -51,6 +54,7 @@ function newGame(mode) {
   game = new Game(names[0], names[1], randomClassId(), randomClassId());
   game.start();
   selection = null;
+  lastShownCastSeq = 0;
   hideAllOverlays();
   render();
 }
@@ -81,7 +85,7 @@ function sendState() {
 
 function handlePeerMessage(msg) {
   if (!msg || (msg.type !== 'init' && msg.type !== 'state')) return;
-  if (msg.type === 'init') { mySeat = msg.seat; gameMode = 'online'; }
+  if (msg.type === 'init') { mySeat = msg.seat; gameMode = 'online'; lastShownCastSeq = 0; }
   game = hydrateGame(msg.state);
   selection = null;
   hideAllOverlays();
@@ -123,6 +127,7 @@ function createOnlineRoom() {
       game.start();
       gameMode = 'online';
       selection = null;
+      lastShownCastSeq = 0;
       conn.send({ type: 'init', seat: 1, state: serializeGame(game) });
       hideAllOverlays();
       render();
@@ -491,7 +496,9 @@ function handCardHtml(entry, i, playable) {
   const stats = def.type === 'minion'
     ? `<div class="minion-stats"><span class="atk" title="공격력">⚔️${def.attack}</span><span class="hp" title="체력">❤️${def.health}</span></div>`
     : '';
+  const spellTag = def.type === 'spell' ? '<div class="spell-tag">주문</div>' : '';
   return `<div class="${classes.join(' ')}" data-role="hand-card" data-hand-index="${i}" style="--cat-color:${cat.color}">
+    ${spellTag}
     <div class="cost-badge" title="마나 코스트">${def.cost}</div>
     <div class="cat-badge" title="${escapeHtml(cat.label)}">${cat.icon}</div>
     <div class="card-art">${def.art || ''}</div>
@@ -580,4 +587,50 @@ function render() {
     game.log.slice(-8).map(l => `<div class="log-line">${escapeHtml(l)}</div>`).join('');
 
   endTurnBtn.disabled = !isMyTurn() || game.gameOver;
+
+  maybeShowCastBanner();
+}
+
+// 주문/영웅 능력 사용 시, 어떤 효과가 발동됐는지 양쪽 모두에게 잠깐 배너로 알려줍니다.
+function maybeShowCastBanner() {
+  const cast = game.lastCast;
+  if (!cast || cast.seq <= lastShownCastSeq) return;
+  lastShownCastSeq = cast.seq;
+
+  const myIdx = activeIdx();
+  const whoLabel = cast.playerIdx === myIdx ? '내' : '상대';
+  let icon, name, text, color;
+  if (cast.kind === 'heropower') {
+    const cls = getClassDef(cast.classId);
+    icon = cls.heroPower.icon;
+    name = cls.heroPower.name;
+    text = cls.heroPower.text;
+    color = '#cf9d3f';
+  } else {
+    const def = getCardDef(cast.cardId);
+    const cat = getCategoryMeta(def.category);
+    icon = def.art || '✨';
+    name = def.name;
+    text = def.text || '';
+    color = cat.color;
+  }
+
+  const banner = document.getElementById('cast-banner');
+  banner.style.setProperty('--cast-color', color);
+  banner.querySelector('.cast-banner-icon').textContent = icon;
+  banner.querySelector('.cast-banner-title').textContent =
+    `${whoLabel} ${cast.kind === 'heropower' ? '영웅 능력' : '주문'}: ${name}`;
+  banner.querySelector('.cast-banner-text').textContent = text;
+
+  clearTimeout(castBannerTimer);
+  clearTimeout(castBannerHideTimer);
+  banner.classList.remove('hidden');
+  banner.classList.remove('showing');
+  void banner.offsetWidth; // 강제 리플로우로 트랜지션을 재시작합니다.
+  banner.classList.add('showing');
+
+  castBannerTimer = setTimeout(() => {
+    banner.classList.remove('showing');
+    castBannerHideTimer = setTimeout(() => banner.classList.add('hidden'), 220);
+  }, 1800);
 }

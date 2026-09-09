@@ -19,6 +19,8 @@ export class Game {
     this.gameOver = false;
     this.winner = null;
     this.log = [];
+    this.eventSeq = 0;
+    this.lastCast = null; // { seq, kind: 'spell'|'heropower', cardId?, classId?, playerIdx } - UI가 주문/영웅 능력 사용을 알아채기 위한 정보
   }
 
   createPlayer(idx, name, classId) {
@@ -193,7 +195,8 @@ export class Game {
       this.logEvent(`${player.name}이(가) ${def.name}을(를) 소환했습니다.`);
       if (def.battlecry) def.battlecry(this, playerIdx, target);
     } else {
-      this.logEvent(`${player.name}이(가) ${def.name}을(를) 사용했습니다.`);
+      this.logEvent(`${player.name}이(가) ${def.name}을(를) 사용했습니다.${def.text ? ` (${def.text})` : ''}`);
+      this.lastCast = { seq: ++this.eventSeq, kind: 'spell', cardId: def.id, playerIdx };
       if (def.spellEffect) def.spellEffect(this, playerIdx, target);
     }
 
@@ -212,7 +215,8 @@ export class Game {
 
     player.mana.current -= heroPower.cost;
     player.heroPowerUsed = true;
-    this.logEvent(`${player.name}이(가) 영웅 능력을 사용했습니다.`);
+    this.logEvent(`${player.name}이(가) 영웅 능력 [${heroPower.name}]을(를) 사용했습니다. (${heroPower.text})`);
+    this.lastCast = { seq: ++this.eventSeq, kind: 'heropower', classId: player.classId, playerIdx };
     heroPower.effect(this, playerIdx, target);
 
     this.checkDeaths();

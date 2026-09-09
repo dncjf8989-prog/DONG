@@ -252,9 +252,45 @@ export function getCategoryMeta(category) {
 
 // 공유 카드 풀을 이용해 덱을 구성합니다 (카드 id 배열, 셔플됨).
 // copies: 0인 카드(토큰)는 소환 효과로만 등장하며 덱에는 들어가지 않습니다.
-export function buildDeck() {
+// ================= 직업(클래스) - 서로 다른 카드 풀과 영웅 능력을 가진 덱 =================
+// 대전 시작 시 플레이어와 AI에게 각각 무작위로 배정되어, 같은 카드 풀을 공유하는
+// "미러전"이 아니라 실제로 다른 덱으로 대결하게 됩니다.
+const NEUTRAL_CATEGORIES = ['vanilla', 'legendary', 'spell_summon'];
+
+export const CLASSES = [
+  { id: 'warrior', name: '전사', icon: '⚔️', categories: ['taunt', 'charge', 'trample', 'spell_buff'],
+    heroPower: { name: '강타', icon: '⚔️', cost: 2, text: '대상에게 피해를 2 줍니다.',
+      requiresTarget: true, targetType: 'any',
+      effect: (game, casterIdx, target) => { game.damageCharacter(target, 2); } } },
+  { id: 'mage', name: '마법사', icon: '🔥', categories: ['spell_damage', 'freeze', 'spell_draw'],
+    heroPower: { name: '화염 손가락', icon: '🔥', cost: 2, text: '대상에게 피해를 1 줍니다.',
+      requiresTarget: true, targetType: 'any',
+      effect: (game, casterIdx, target) => { game.damageCharacter(target, 1); } } },
+  { id: 'priest', name: '사제', icon: '✨', categories: ['spell_heal', 'divine_shield', 'silence'],
+    heroPower: { name: '신성한 손길', icon: '✨', cost: 2, text: '대상의 체력을 2 회복시킵니다.',
+      requiresTarget: true, targetType: 'any',
+      effect: (game, casterIdx, target) => { game.healCharacter(target, 2); } } },
+  { id: 'rogue', name: '도적', icon: '🗡️', categories: ['stealth', 'deathrattle', 'battlecry'],
+    heroPower: { name: '표창 투척', icon: '🗡️', cost: 1, text: '대상에게 피해를 1 줍니다.',
+      requiresTarget: true, targetType: 'any',
+      effect: (game, casterIdx, target) => { game.damageCharacter(target, 1); } } },
+];
+
+export function getClassDef(classId) {
+  return CLASSES.find(c => c.id === classId) || CLASSES[0];
+}
+
+export function randomClassId() {
+  return CLASSES[Math.floor(Math.random() * CLASSES.length)].id;
+}
+
+// classId의 직업이 다루는 카드 풀(중립 카테고리 + 직업 전용 카테고리)만 모아 덱을 구성합니다.
+export function buildDeck(classId) {
+  const cls = getClassDef(classId);
+  const allowed = new Set([...NEUTRAL_CATEGORIES, ...cls.categories]);
   const deck = [];
   for (const card of CARD_DB) {
+    if (!allowed.has(card.category)) continue;
     const copies = card.copies === undefined ? 1 : card.copies;
     for (let i = 0; i < copies; i++) deck.push(card.id);
   }

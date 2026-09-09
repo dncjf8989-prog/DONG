@@ -1,23 +1,17 @@
 // 게임 엔진 - 턴, 마나, 전투, 카드 효과 등 핵심 규칙을 담당합니다.
-import { getCardDef, buildDeck } from './cards.js';
-
-export const HERO_POWER = {
-  name: '화염 손가락',
-  cost: 2,
-  text: '대상에게 피해를 1 줍니다.',
-  requiresTarget: true,
-  targetType: 'any',
-  effect: (game, casterIdx, target) => { game.damageCharacter(target, 1); },
-};
+import { getCardDef, buildDeck, getClassDef, randomClassId } from './cards.js';
 
 const MAX_BOARD_SIZE = 7;
 const MAX_HAND_SIZE = 10;
 const STARTING_HEALTH = 30;
 
 export class Game {
-  constructor(player1Name = '플레이어', player2Name = 'AI') {
+  constructor(player1Name = '플레이어', player2Name = 'AI', player1ClassId, player2ClassId) {
     this.nextId = 1;
-    this.players = [this.createPlayer(0, player1Name), this.createPlayer(1, player2Name)];
+    this.players = [
+      this.createPlayer(0, player1Name, player1ClassId || randomClassId()),
+      this.createPlayer(1, player2Name, player2ClassId || randomClassId()),
+    ];
     this.currentPlayer = 0;
     this.turnNumber = 0;
     this.gameOver = false;
@@ -25,18 +19,23 @@ export class Game {
     this.log = [];
   }
 
-  createPlayer(idx, name) {
+  createPlayer(idx, name, classId) {
     return {
       idx,
       name,
+      classId,
       hero: { health: STARTING_HEALTH, maxHealth: STARTING_HEALTH },
       heroPowerUsed: false,
       mana: { current: 0, max: 0 },
-      deck: buildDeck(),
+      deck: buildDeck(classId),
       hand: [],
       board: [],
       fatigue: 0,
     };
+  }
+
+  getHeroPower(playerIdx) {
+    return getClassDef(this.players[playerIdx].classId).heroPower;
   }
 
   logEvent(msg) {
@@ -195,14 +194,15 @@ export class Game {
   useHeroPower(playerIdx, target = null) {
     if (this.gameOver) return { ok: false, reason: '게임이 종료되었습니다.' };
     const player = this.players[playerIdx];
+    const heroPower = this.getHeroPower(playerIdx);
     if (player.heroPowerUsed) return { ok: false, reason: '이미 사용한 영웅 능력입니다.' };
-    if (player.mana.current < HERO_POWER.cost) return { ok: false, reason: '마나가 부족합니다.' };
-    if (HERO_POWER.requiresTarget && !target) return { ok: false, reason: '대상을 선택해야 합니다.' };
+    if (player.mana.current < heroPower.cost) return { ok: false, reason: '마나가 부족합니다.' };
+    if (heroPower.requiresTarget && !target) return { ok: false, reason: '대상을 선택해야 합니다.' };
 
-    player.mana.current -= HERO_POWER.cost;
+    player.mana.current -= heroPower.cost;
     player.heroPowerUsed = true;
     this.logEvent(`${player.name}이(가) 영웅 능력을 사용했습니다.`);
-    HERO_POWER.effect(this, playerIdx, target);
+    heroPower.effect(this, playerIdx, target);
 
     this.checkDeaths();
     this.checkGameOver();

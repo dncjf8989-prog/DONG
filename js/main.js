@@ -1,6 +1,6 @@
 // UI 렌더링과 사용자 입력 처리
-import { Game, HERO_POWER } from './engine.js';
-import { getCardDef, getCategoryMeta, KEYWORD_GLOSSARY } from './cards.js';
+import { Game } from './engine.js';
+import { getCardDef, getCategoryMeta, KEYWORD_GLOSSARY, getClassDef, randomClassId } from './cards.js';
 import { runAiTurn } from './ai.js';
 
 let game = null;
@@ -47,7 +47,8 @@ function hideAllOverlays() {
 
 function newGame(mode) {
   gameMode = mode;
-  game = mode === 'hotseat' ? new Game('플레이어 1', '플레이어 2') : new Game('플레이어', 'AI');
+  const names = mode === 'hotseat' ? ['플레이어 1', '플레이어 2'] : ['플레이어', 'AI'];
+  game = new Game(names[0], names[1], randomClassId(), randomClassId());
   game.start();
   selection = null;
   hideAllOverlays();
@@ -118,7 +119,7 @@ function createOnlineRoom() {
   peer.on('connection', (conn) => {
     peerConn = conn;
     conn.on('open', () => {
-      game = new Game('플레이어 1', '플레이어 2');
+      game = new Game('플레이어 1', '플레이어 2', randomClassId(), randomClassId());
       game.start();
       gameMode = 'online';
       selection = null;
@@ -173,7 +174,7 @@ function currentValidTargets() {
   if (!selection) return [];
   const idx = activeIdx();
   if (selection.type === 'card') return game.getValidTargets(idx, selection.def);
-  if (selection.type === 'heropower') return game.getValidTargets(idx, HERO_POWER);
+  if (selection.type === 'heropower') return game.getValidTargets(idx, game.getHeroPower(idx));
   if (selection.type === 'attack') return game.getValidAttackTargets(idx);
   return [];
 }
@@ -224,7 +225,7 @@ function handleOwnMinionAsAttacker(id) {
 function handleHeroPowerClick() {
   const idx = activeIdx();
   const player = game.players[idx];
-  if (player.heroPowerUsed || player.mana.current < HERO_POWER.cost) return;
+  if (player.heroPowerUsed || player.mana.current < game.getHeroPower(idx).cost) return;
   if (selection && selection.type === 'heropower') {
     selection = null;
     render();
@@ -518,12 +519,17 @@ function render() {
 
   appEl.classList.toggle('opponent-turn', !isMyTurn() || game.gameOver);
 
+  const myHeroPower = game.getHeroPower(myIdx);
+  const oppClass = getClassDef(opp.classId);
+  const myClass = getClassDef(me.classId);
+
   const heroPowerClasses = ['hero-power-btn'];
-  if (me.heroPowerUsed || me.mana.current < HERO_POWER.cost) heroPowerClasses.push('disabled');
+  if (me.heroPowerUsed || me.mana.current < myHeroPower.cost) heroPowerClasses.push('disabled');
   if (selection && selection.type === 'heropower') heroPowerClasses.push('selected');
 
   document.getElementById('opponent-hero').outerHTML = `
     <div id="opponent-hero" class="hero ${targetable({ kind: 'hero', playerIdx: oppIdx }) ? 'targetable' : ''}" data-role="enemy-hero">
+      <div class="hero-class-badge" title="${escapeHtml(oppClass.name)}">${oppClass.icon}</div>
       <div class="hero-name">${escapeHtml(opp.name)}</div>
       <div class="hero-health">${opp.hero.health}</div>
     </div>`;
@@ -547,13 +553,16 @@ function render() {
 
   document.getElementById('player-hero').outerHTML = `
     <div id="player-hero" class="hero ${targetable({ kind: 'hero', playerIdx: myIdx }) ? 'targetable' : ''}" data-role="own-hero">
+      <div class="hero-class-badge" title="${escapeHtml(myClass.name)}">${myClass.icon}</div>
       <div class="hero-name">${escapeHtml(me.name)}</div>
       <div class="hero-health">${me.hero.health}</div>
     </div>`;
 
   const heroPowerBtn = document.getElementById('player-hero-power');
   heroPowerBtn.className = heroPowerClasses.join(' ');
-  heroPowerBtn.title = `${HERO_POWER.name}: ${HERO_POWER.text}`;
+  heroPowerBtn.title = `${myHeroPower.name}: ${myHeroPower.text}`;
+  heroPowerBtn.querySelector('.hp-icon').textContent = myHeroPower.icon;
+  heroPowerBtn.querySelector('.hp-cost').textContent = myHeroPower.cost;
 
   document.getElementById('mana-crystals').innerHTML =
     `${manaHtml(me.mana)} <span class="mana-text">${me.mana.current}/${me.mana.max}</span>`;

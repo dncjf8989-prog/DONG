@@ -1,6 +1,5 @@
 // 매우 단순한 규칙 기반 AI - 상대 플레이어(플레이어 인덱스 1)를 조종합니다.
 import { getCardDef } from './cards.js';
-import { HERO_POWER } from './engine.js';
 
 export function runAiTurn(game, idx = 1) {
   const player = game.players[idx];
@@ -27,7 +26,7 @@ export function runAiTurn(game, idx = 1) {
   }
 
   // 2. 영웅 능력 사용을 고려합니다.
-  if (!game.gameOver && !player.heroPowerUsed && player.mana.current >= HERO_POWER.cost) {
+  if (!game.gameOver && !player.heroPowerUsed && player.mana.current >= game.getHeroPower(idx).cost) {
     const target = pickHeroPowerTarget(game, idx);
     if (target) game.useHeroPower(idx, target);
   }
@@ -83,7 +82,7 @@ function pickTargetForCard(game, idx, def) {
 }
 
 function pickHeroPowerTarget(game, idx) {
-  const targets = game.getValidTargets(idx, HERO_POWER);
+  const targets = game.getValidTargets(idx, game.getHeroPower(idx));
   const oppMinionTargets = targets.filter(t => t.kind === 'minion' && t.playerIdx !== idx);
   const finishable = oppMinionTargets.filter(t => {
     const m = game.getCharacter(t);

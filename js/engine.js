@@ -3,7 +3,8 @@ import { getCardDef, buildDeck, getClassDef, randomClassId } from './cards.js';
 
 const MAX_BOARD_SIZE = 7;
 const MAX_HAND_SIZE = 10;
-const STARTING_HEALTH = 30;
+const STARTING_HEALTH = 25;
+const OVERTIME_START_TURN = 10; // 이 턴(라운드)을 넘기면 매 라운드 양쪽 영웅에게 누적 피해가 들어갑니다.
 
 export class Game {
   constructor(player1Name = '플레이어', player2Name = 'AI', player1ClassId, player2ClassId) {
@@ -14,6 +15,7 @@ export class Game {
     ];
     this.currentPlayer = 0;
     this.turnNumber = 0;
+    this.overtimeStacks = 0;
     this.gameOver = false;
     this.winner = null;
     this.log = [];
@@ -56,7 +58,16 @@ export class Game {
 
   startTurn(idx) {
     const player = this.players[idx];
-    if (idx === 0) this.turnNumber++;
+    if (idx === 0) {
+      this.turnNumber++;
+      if (this.turnNumber > OVERTIME_START_TURN) {
+        this.overtimeStacks++;
+        this.logEvent(`⚡ 연장전! 폭풍이 몰아쳐 양쪽 영웅이 ${this.overtimeStacks}의 피해를 입습니다.`);
+        this.damageCharacter({ kind: 'hero', playerIdx: 0 }, this.overtimeStacks);
+        this.damageCharacter({ kind: 'hero', playerIdx: 1 }, this.overtimeStacks);
+        this.checkGameOver();
+      }
+    }
     player.mana.max = Math.min(10, player.mana.max + 1);
     player.mana.current = player.mana.max;
     player.heroPowerUsed = false;

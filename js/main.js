@@ -1,12 +1,12 @@
 // UI 렌더링과 사용자 입력 처리
 import { Game } from './engine.js';
 import { getCardDef, getCategoryMeta, KEYWORD_GLOSSARY, getClassDef, randomClassId } from './cards.js';
-import { runAiTurn } from './ai.js';
+import { aiTurnSteps } from './ai.js';
 
 let game = null;
 let selection = null; // {type:'card', handIndex, def} | {type:'attack', minionId} | {type:'heropower'}
 let gameMode = 'ai'; // 'ai' | 'hotseat' | 'online'
-let pendingAttackAnim = null;
+let pendingAttackFx = null;
 let lastShownCastSeq = 0; // 주문/영웅 능력 사용 배너를 마지막으로 보여준 이벤트 순번
 let castBannerTimer = null;
 let castBannerHideTimer = null;
@@ -248,33 +248,84 @@ function elForRef(ref, myIdx) {
   return document.querySelector(`[data-role="${role}"][data-minion-id="${ref.id}"]`);
 }
 
-function computeAttackAnim(attackerEl, targetEl, attackerId, targetRef) {
-  if (!attackerEl) return null;
-  const a = attackerEl.getBoundingClientRect();
-  let dx = 0;
-  let dy = 0;
-  if (targetEl) {
-    const t = targetEl.getBoundingClientRect();
-    dx = (t.left + t.width / 2) - (a.left + a.width / 2);
-    dy = (t.top + t.height / 2) - (a.top + a.height / 2);
-  }
-  return { attackerId, targetRef, dx: dx * 0.4, dy: dy * 0.4 };
+// ---- 공격 모션: 어떤 카드가 어떤 대상을 공격하는지 한눈에 보이도록, 공격자에서 대상으로
+// 날아가는 아이콘 + 궤적선 + 착탄 이펙트를 오버레이 레이어에 그립니다. 공격 후 미니언이
+// 죽어서 DOM에서 사라지거나 전장이 다시 배치되어도 좌표는 공격 시점에 미리 캡처해두므로
+// 안전하게 재생됩니다.
+function rectRelativeToFelt(el) {
+  const felt = document.querySelector('.felt');
+  const feltRect = felt.getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  return {
+    x: r.left + r.width / 2 - feltRect.left,
+    y: r.top + r.height / 2 - feltRect.top,
+  };
 }
 
-function applyAttackAnimation(anim) {
-  const myIdx = activeIdx();
-  const attackerEl = document.querySelector(`[data-role="own-minion"][data-minion-id="${anim.attackerId}"]`);
-  if (attackerEl) {
-    attackerEl.style.setProperty('--atk-dx', anim.dx + 'px');
-    attackerEl.style.setProperty('--atk-dy', anim.dy + 'px');
-    attackerEl.classList.add('attacking');
-    attackerEl.addEventListener('animationend', () => attackerEl.classList.remove('attacking'), { once: true });
-  }
-  const targetEl = elForRef(anim.targetRef, myIdx);
-  if (targetEl) {
-    targetEl.classList.add('hit-flash');
-    targetEl.addEventListener('animationend', () => targetEl.classList.remove('hit-flash'), { once: true });
-  }
+function captureAttackFx(attackerEl, targetEl) {
+  if (!attackerEl || !targetEl) return null;
+  const artEl = attackerEl.querySelector('.minion-art');
+  return {
+    from: rectRelativeToFelt(attackerEl),
+    to: rectRelativeToFelt(targetEl),
+    icon: artEl ? artEl.textContent : '⚔️',
+  };
+}
+
+function playAttackFx(fx, targetRef, myIdx) {
+  return new Promise((resolve) => {
+    const layer = document.getElementById('attack-fx-layer');
+    if (!fx || !layer) { resolve(); return; }
+    const { from, to, icon } = fx;
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    const dist = Math.hypot(dx, dy);
+
+    const trail = document.createElement('div');
+    trail.className = 'attack-trail';
+    trail.style.left = from.x + 'px';
+    trail.style.top = from.y + 'px';
+    trail.style.width = dist + 'px';
+    trail.style.transform = `rotate(${angle}deg)`;
+    layer.appendChild(trail);
+
+    const bolt = document.createElement('div');
+    bolt.className = 'attack-bolt';
+    bolt.textContent = icon;
+    bolt.style.left = from.x + 'px';
+    bolt.style.top = from.y + 'px';
+    layer.appendChild(bolt);
+
+    requestAnimationFrame(() => {
+      bolt.style.transform = `translate(-50%, -50%) translate(${dx}px, ${dy}px) scale(1.25)`;
+      trail.style.opacity = '1';
+    });
+
+    const TRAVEL_MS = 260;
+    setTimeout(() => {
+      bolt.remove();
+      trail.remove();
+
+      const impact = document.createElement('div');
+      impact.className = 'attack-impact';
+      impact.style.left = to.x + 'px';
+      impact.style.top = to.y + 'px';
+      layer.appendChild(impact);
+
+      const targetEl = elForRef(targetRef, myIdx);
+      if (targetEl) {
+        targetEl.classList.add('hit-flash');
+        targetEl.addEventListener('animationend', () => targetEl.classList.remove('hit-flash'), { once: true });
+      }
+
+      setTimeout(() => { impact.remove(); resolve(); }, 260);
+    }, TRAVEL_MS);
+  });
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function resolveTarget(ref) {
@@ -290,7 +341,7 @@ function resolveTarget(ref) {
   } else if (selection.type === 'attack') {
     const attackerEl = document.querySelector(`[data-role="own-minion"][data-minion-id="${selection.minionId}"]`);
     const targetEl = elForRef(ref, idx);
-    pendingAttackAnim = computeAttackAnim(attackerEl, targetEl, selection.minionId, ref);
+    pendingAttackFx = { fx: captureAttackFx(attackerEl, targetEl), targetRef: ref, myIdx: idx };
     game.attack(idx, selection.minionId, ref);
   }
   selection = null;
@@ -306,9 +357,10 @@ function skipOptionalTarget() {
 
 function afterAction() {
   render();
-  if (pendingAttackAnim) {
-    applyAttackAnimation(pendingAttackAnim);
-    pendingAttackAnim = null;
+  if (pendingAttackFx) {
+    const { fx, targetRef, myIdx } = pendingAttackFx;
+    playAttackFx(fx, targetRef, myIdx);
+    pendingAttackFx = null;
   }
   if (gameMode === 'online') sendState();
   if (game.gameOver) showGameOver();
@@ -388,12 +440,31 @@ endTurnBtn.addEventListener('click', () => {
 
   render();
   endTurnBtn.disabled = true;
-  setTimeout(() => {
-    if (!game.gameOver) runAiTurn(game);
-    render();
-    if (game.gameOver) showGameOver();
-  }, 700);
+  setTimeout(() => { runAiTurnAnimated(); }, 700);
 });
+
+// AI의 턴을 한 행동씩(카드 사용/영웅 능력/공격) 순서대로 재생합니다. 공격 행동은
+// 공격자→대상으로 날아가는 모션으로 표시되어, 어떤 미니언이 무엇을 공격했는지 알 수 있습니다.
+async function runAiTurnAnimated() {
+  if (!game.gameOver) {
+    for (const step of aiTurnSteps(game, 1)) {
+      if (step.type === 'attack') {
+        const myIdx = activeIdx();
+        const attackerEl = document.querySelector(`[data-role="enemy-minion"][data-minion-id="${step.attackerId}"]`);
+        const targetEl = elForRef(step.targetRef, myIdx);
+        const fx = captureAttackFx(attackerEl, targetEl);
+        render();
+        await playAttackFx(fx, step.targetRef, myIdx);
+      } else {
+        render();
+        await sleep(500);
+      }
+      if (game.gameOver) break;
+    }
+  }
+  render();
+  if (game.gameOver) showGameOver();
+}
 
 restartBtn.addEventListener('click', () => {
   if (gameMode === 'online') return; // 온라인 대전은 재시작 대신 방을 나가야 함

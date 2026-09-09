@@ -1,7 +1,11 @@
 // 매우 단순한 규칙 기반 AI - 상대 플레이어(플레이어 인덱스 1)를 조종합니다.
 import { getCardDef } from './cards.js';
 
-export function runAiTurn(game, idx = 1) {
+// 턴의 각 행동(카드 사용/영웅 능력/공격) 직후 그 행동을 설명하는 정보를 yield하는
+// 제너레이터입니다. 실제 게임 상태 변경은 즉시(동기적으로) 일어나며, yield는 단지
+// UI가 한 행동씩 렌더링/애니메이션할 수 있도록 끊어주는 지점일 뿐입니다.
+// (동기 for...of로 끝까지 소비하면 기존 runAiTurn과 완전히 동일하게 동작합니다.)
+export function* aiTurnSteps(game, idx = 1) {
   const player = game.players[idx];
 
   // 1. 마나가 허용하는 한 손패의 카드를 최대한 많이 사용합니다 (비싼 카드 우선).
@@ -25,6 +29,7 @@ export function runAiTurn(game, idx = 1) {
       const result = game.playCard(idx, i, target);
       if (result.ok) {
         playedSomething = true;
+        yield { type: 'card', cardId: def.id, target, playerIdx: idx };
         break;
       }
     }
@@ -33,7 +38,10 @@ export function runAiTurn(game, idx = 1) {
   // 2. 영웅 능력 사용을 고려합니다.
   if (!game.gameOver && !player.heroPowerUsed && player.mana.current >= game.getHeroPower(idx).cost) {
     const target = pickHeroPowerTarget(game, idx);
-    if (target) game.useHeroPower(idx, target);
+    if (target) {
+      game.useHeroPower(idx, target);
+      yield { type: 'heropower', target, playerIdx: idx };
+    }
   }
 
   // 3. 공격 가능한 미니언으로 공격합니다.
@@ -42,12 +50,20 @@ export function runAiTurn(game, idx = 1) {
     for (const attacker of attackers) {
       if (game.gameOver) break;
       const targetRef = pickAttackTarget(game, idx, attacker);
-      if (targetRef) game.attack(idx, attacker.id, targetRef);
+      if (targetRef) {
+        game.attack(idx, attacker.id, targetRef);
+        yield { type: 'attack', attackerId: attacker.id, targetRef, playerIdx: idx };
+      }
     }
   }
 
   // 4. 턴 종료.
   if (!game.gameOver) game.endTurn();
+}
+
+// 시뮬레이션/테스트용: 애니메이션 없이 턴 전체를 즉시 실행합니다 (기존 동작과 동일).
+export function runAiTurn(game, idx = 1) {
+  for (const _step of aiTurnSteps(game, idx)) { /* 즉시 소비 - UI 없이 전체 턴 실행 */ }
 }
 
 function pickTargetForCard(game, idx, def) {

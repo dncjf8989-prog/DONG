@@ -318,6 +318,14 @@ export class Game {
     minion.silenced = true;
   }
 
+  // 신성한 보호막 등 피해 방지 효과를 무시하고 미니언을 즉시 파괴합니다 (죽음의 메아리는 정상 발동).
+  destroyMinion(ref) {
+    if (!ref || ref.kind !== 'minion') return;
+    const minion = this.findMinion(ref.playerIdx, ref.id);
+    if (!minion) return;
+    minion.health = -999;
+  }
+
   summonToken(playerIdx, tokenCardId) {
     const player = this.players[playerIdx];
     if (player.board.length >= MAX_BOARD_SIZE) return;

@@ -4,6 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>마나 듀얼 - 카드 대전 초안</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400;1,500&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="css/style.css" />
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
 </head>
@@ -11,43 +14,48 @@
 <div id="app">
   <header id="top-bar">
     <h1>마나 듀얼</h1>
-    <div id="turn-indicator">당신의 턴</div>
+    <div class="sub">AI 또는 친구와 함께하는 카드 결투</div>
   </header>
 
-  <section id="opponent-area">
-    <div id="opponent-hero" class="hero" data-role="enemy-hero">
-      <div class="hero-name">AI</div>
-      <div class="hero-health">30</div>
-    </div>
-    <div id="opponent-hand" class="hand hand-back"></div>
-    <div id="opponent-board" class="board" data-empty-label="상대 전장"></div>
-  </section>
-
-  <section id="middle-area">
-    <div id="log-panel"></div>
-  </section>
-
-  <section id="player-area">
-    <div id="player-board" class="board" data-empty-label="내 전장"></div>
-    <div id="bottom-row">
-      <div class="hero-row">
-        <div id="player-hero" class="hero" data-role="own-hero">
-          <div class="hero-name">플레이어</div>
+  <div class="table">
+    <div class="felt">
+      <section id="opponent-area">
+        <div id="opponent-hero" class="hero" data-role="enemy-hero">
+          <div class="hero-name">AI</div>
           <div class="hero-health">30</div>
         </div>
-        <button id="player-hero-power" class="hero-power-btn" data-role="hero-power" title="화염 손가락: 대상에게 피해를 1 줍니다.">
-          <span class="hp-icon">🔥</span><span class="hp-cost">2</span>
-        </button>
-      </div>
-      <div id="mana-crystals"></div>
-      <div id="controls">
-        <button id="skip-target-btn" class="hidden" data-role="skip-target">대상 없이 사용</button>
-        <button id="end-turn-btn">턴 종료</button>
-      </div>
+        <div id="opponent-hand" class="hand hand-back"></div>
+        <div id="opponent-board" class="board" data-empty-label="상대 전장"></div>
+      </section>
+
+      <section id="middle-area">
+        <div id="turn-indicator" class="turn-indicator">당신의 턴</div>
+        <div id="log-panel"></div>
+      </section>
+
+      <section id="player-area">
+        <div id="player-board" class="board" data-empty-label="내 전장"></div>
+        <div id="bottom-row">
+          <div class="hero-row">
+            <div id="player-hero" class="hero" data-role="own-hero">
+              <div class="hero-name">플레이어</div>
+              <div class="hero-health">30</div>
+            </div>
+            <button id="player-hero-power" class="hero-power-btn" data-role="hero-power" title="화염 손가락: 대상에게 피해를 1 줍니다.">
+              <span class="hp-icon">🔥</span><span class="hp-cost">2</span>
+            </button>
+          </div>
+          <div id="mana-crystals"></div>
+          <div id="controls">
+            <button id="skip-target-btn" class="hidden" data-role="skip-target">대상 없이 사용</button>
+            <button id="end-turn-btn">턴 종료</button>
+          </div>
+        </div>
+        <div id="legend">💧 코스트(마나) &nbsp; ⚔️ 공격력 &nbsp; ❤️ 체력 &nbsp; <button id="glossary-btn" class="glossary-link">❓ 키워드 설명</button></div>
+        <div id="player-hand" class="hand"></div>
+      </section>
     </div>
-    <div id="legend">💧 코스트(마나) &nbsp; ⚔️ 공격력 &nbsp; ❤️ 체력 &nbsp; <button id="glossary-btn" class="glossary-link">❓ 키워드 설명</button></div>
-    <div id="player-hand" class="hand"></div>
-  </section>
+  </div>
 
   <div id="game-over-overlay" class="hidden">
     <div class="overlay-box">

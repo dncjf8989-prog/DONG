@@ -174,13 +174,6 @@ body {
   45% { opacity: 1; }
   55% { opacity: 0.4; }
 }
-.scn-flame { animation: scnFlameFlicker 1.2s ease-in-out infinite; transform-origin: bottom center; }
-.scn-flame.f2 { animation-delay: 0.4s; }
-@keyframes scnFlameFlicker {
-  0%, 100% { transform: scaleY(1) scaleX(1); opacity: 0.9; }
-  30% { transform: scaleY(1.15) scaleX(0.92); opacity: 1; }
-  60% { transform: scaleY(0.92) scaleX(1.06); opacity: 0.85; }
-}
 .scn-ember { animation: scnEmberRise 4s ease-in infinite; opacity: 0; }
 .scn-ember.e2 { animation-delay: 1s; }
 .scn-ember.e3 { animation-delay: 2s; }

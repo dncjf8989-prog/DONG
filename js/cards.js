@@ -17,16 +17,19 @@ export const CATEGORY_META = {
   stealth:       { label: '은신',          color: '#6c6f93', icon: '🌫️' },
   silence:       { label: '침묵',          color: '#8a8a8a', icon: '🔇' },
   legendary:     { label: '전설',          color: '#e8b64a', icon: '👑' },
+  trample:       { label: '돌파',          color: '#c9622f', icon: '🐘' },
 };
 
 // 게임에서 쓰이는 키워드 설명 목록 - 용어집 화면에 표시됩니다.
 export const KEYWORD_GLOSSARY = [
-  { icon: '🛡️', name: '도발', desc: '상대는 이 미니언이 있으면 다른 대상을 공격할 수 없고, 반드시 도발 미니언부터 공격해야 합니다.' },
+  { icon: '🧱', name: '미니언 차단', desc: '상대 전장에 미니언이 있으면(은신 제외) 영웅을 바로 공격하거나 주문/영웅 능력으로 직접 피해를 줄 수 없습니다. 미니언이 모두 사라져야 영웅을 노릴 수 있습니다.' },
+  { icon: '🛡️', name: '도발', desc: '적 전장에 도발 미니언이 있으면, 다른 미니언이 있어도 반드시 도발 미니언부터 공격해야 합니다.' },
   { icon: '✨', name: '신성한 보호막', desc: '처음 받는 피해를 완전히 막아줍니다. 한 번 막고 나면 사라집니다.' },
   { icon: '⚡', name: '돌진', desc: '보통 미니언은 소환된 턴에 공격할 수 없지만, 돌진이 있으면 소환된 바로 그 턴에도 공격할 수 있습니다.' },
-  { icon: '🌫️', name: '은신', desc: '상대에게 보이지 않아 공격이나 주문의 대상이 될 수 없습니다. 이 미니언이 직접 공격하면 은신이 풀립니다.' },
+  { icon: '🌫️', name: '은신', desc: '상대에게 보이지 않아 공격이나 주문의 대상이 될 수 없고, 미니언 차단에도 관여하지 않습니다. 이 미니언이 직접 공격하면 은신이 풀립니다.' },
+  { icon: '🐘', name: '돌파', desc: '공격력이 막고 있는 미니언의 남은 체력보다 크면, 그 초과분만큼 피해가 상대 영웅에게 그대로 들어갑니다. 신성한 보호막으로 막히면 돌파 피해도 발생하지 않습니다.' },
   { icon: '❄️', name: '빙결', desc: '얼려진 대상은 다음 공격 기회를 한 번 사용하지 못합니다.' },
-  { icon: '🔇', name: '침묵', desc: '도발·보호막·돌진·은신 등 모든 특수 능력과 죽음의 메아리를 제거합니다. 공격력/체력은 그대로 유지됩니다.' },
+  { icon: '🔇', name: '침묵', desc: '도발·보호막·돌진·은신·돌파 등 모든 특수 능력과 죽음의 메아리를 제거합니다. 공격력/체력은 그대로 유지됩니다.' },
   { icon: '📯', name: '전투의 함성', desc: '이 카드를 낼 때 한 번 발동하는 효과입니다.' },
   { icon: '💀', name: '죽음의 메아리', desc: '이 미니언이 파괴될 때 발동하는 효과입니다. (침묵당한 상태면 발동하지 않습니다)' },
   { icon: '👑', name: '전설', desc: '단 한 장뿐인, 강력하고 독특한 효과를 가진 특별한 카드입니다.' },
@@ -64,6 +67,14 @@ export const CARD_DB = [
   // ---- 돌진 ----
   { id: 'charging_scout', name: '돌격 정찰병', cost: 3, type: 'minion', attack: 3, health: 2, copies: 1,
     keywords: { charge: true }, category: 'charge', art: '🐎', text: '돌진 (소환된 턴에 바로 공격 가능)' },
+
+  // ---- 돌파 (하급 몬스터는 갖지 못하는 고급 능력) ----
+  { id: 'rampaging_rhino', name: '성난 코뿔소', cost: 5, type: 'minion', attack: 5, health: 5, copies: 1,
+    keywords: { trample: true }, category: 'trample', art: '🦏',
+    text: '돌파 (막고 있는 미니언 체력을 넘는 피해는 영웅에게 그대로 들어감)' },
+  { id: 'rampaging_giant', name: '폭주하는 거인', cost: 7, type: 'minion', attack: 7, health: 6, copies: 1,
+    keywords: { trample: true }, category: 'trample', art: '🗿',
+    text: '돌파 (막고 있는 미니언 체력을 넘는 피해는 영웅에게 그대로 들어감)' },
 
   // ---- 전투의 함성(소환 시 효과) ----
   { id: 'novice_engineer', name: '견습 기술자', cost: 2, type: 'minion', attack: 1, health: 1, copies: 1,

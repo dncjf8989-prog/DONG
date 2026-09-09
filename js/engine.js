@@ -121,16 +121,17 @@ export class Game {
     const me = this.players[playerIdx];
     const opp = this.players[1 - playerIdx];
     const oppVisible = opp.board.filter(m => !m.stealth);
+    const enemyHeroReachable = oppVisible.length === 0;
     const targets = [];
     if (def.targetType === 'any') {
       targets.push({ kind: 'hero', playerIdx });
-      targets.push({ kind: 'hero', playerIdx: 1 - playerIdx });
+      if (enemyHeroReachable) targets.push({ kind: 'hero', playerIdx: 1 - playerIdx });
       for (const m of me.board) targets.push({ kind: 'minion', playerIdx, id: m.id });
       for (const m of oppVisible) targets.push({ kind: 'minion', playerIdx: 1 - playerIdx, id: m.id });
     } else if (def.targetType === 'friendly_minion') {
       for (const m of me.board) targets.push({ kind: 'minion', playerIdx, id: m.id });
     } else if (def.targetType === 'enemy') {
-      targets.push({ kind: 'hero', playerIdx: 1 - playerIdx });
+      if (enemyHeroReachable) targets.push({ kind: 'hero', playerIdx: 1 - playerIdx });
       for (const m of oppVisible) targets.push({ kind: 'minion', playerIdx: 1 - playerIdx, id: m.id });
     } else if (def.targetType === 'enemy_minion') {
       for (const m of oppVisible) targets.push({ kind: 'minion', playerIdx: 1 - playerIdx, id: m.id });
@@ -172,6 +173,7 @@ export class Game {
         divineShield: !!(def.keywords && def.keywords.divineShield),
         charge: !!(def.keywords && def.keywords.charge),
         stealth: !!(def.keywords && def.keywords.stealth),
+        trample: !!(def.keywords && def.keywords.trample),
         frozen: false,
         silenced: false,
         summoningSick: !(def.keywords && def.keywords.charge),
@@ -240,8 +242,15 @@ export class Game {
       this.damageCharacter(targetRef, attacker.attack);
     } else {
       const defender = this.findMinion(targetRef.playerIdx, targetRef.id);
+      const defenderHadShield = defender.divineShield;
+      const defenderHealthBefore = defender.health;
       this.damageCharacter(targetRef, attacker.attack);
       this.damageCharacter({ kind: 'minion', playerIdx, id: attacker.id }, defender.attack);
+      if (attacker.trample && !defenderHadShield && attacker.attack > defenderHealthBefore) {
+        const excess = attacker.attack - defenderHealthBefore;
+        this.damageCharacter({ kind: 'hero', playerIdx: targetRef.playerIdx }, excess);
+        this.logEvent(`${getCardDef(attacker.cardId).name}의 돌파 피해가 영웅에게 ${excess} 들어갔습니다.`);
+      }
     }
 
     this.checkDeaths();
@@ -304,6 +313,7 @@ export class Game {
     minion.divineShield = false;
     minion.charge = false;
     minion.stealth = false;
+    minion.trample = false;
     minion.frozen = false;
     minion.silenced = true;
   }
@@ -322,6 +332,7 @@ export class Game {
       divineShield: !!(def.keywords && def.keywords.divineShield),
       charge: !!(def.keywords && def.keywords.charge),
       stealth: !!(def.keywords && def.keywords.stealth),
+      trample: !!(def.keywords && def.keywords.trample),
       frozen: false,
       silenced: false,
       summoningSick: !(def.keywords && def.keywords.charge),

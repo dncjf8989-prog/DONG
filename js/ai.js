@@ -90,7 +90,10 @@ function pickHeroPowerTarget(game, idx) {
     return m && m.health <= 1 && !m.divineShield;
   });
   if (finishable.length > 0) return finishable[0];
-  return { kind: 'hero', playerIdx: 1 - idx };
+  const heroTarget = targets.find(t => t.kind === 'hero' && t.playerIdx !== idx);
+  if (heroTarget) return heroTarget;
+  if (oppMinionTargets.length > 0) return oppMinionTargets[0];
+  return targets[0] || null;
 }
 
 function pickAttackTarget(game, idx, attacker) {

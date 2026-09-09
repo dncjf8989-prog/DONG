@@ -15,6 +15,11 @@ export function runAiTurn(game, idx = 1) {
 
     for (const { i, def } of order) {
       if (def.type === 'minion' && player.board.length >= 7) continue;
+      // 전체 피해 카드는 상대 미니언이 충분히 쌓였을 때만 사용해 가치를 아낍니다.
+      if (def.boardClear) {
+        const oppBoardSize = game.players[1 - idx].board.filter(m => !m.stealth).length;
+        if (oppBoardSize < 2) continue;
+      }
       const target = pickTargetForCard(game, idx, def);
       if (def.requiresTarget && !def.optionalTarget && !target) continue;
       const result = game.playCard(idx, i, target);
@@ -60,10 +65,14 @@ function pickTargetForCard(game, idx, def) {
   }
 
   // 처치 가능한 적 미니언 우선, 없으면 상대 영웅(가능한 대상 종류일 때만).
+  // "파괴" 효과(destroysMinion)는 체력/보호막에 상관없이 무엇이든 처치할 수 있으므로
+  // 가장 위협적인(공격력이 높은) 미니언에 우선적으로 사용합니다.
   const oppMinionTargets = targets.filter(t => t.kind === 'minion' && t.playerIdx !== idx);
   const killable = oppMinionTargets.filter(t => {
     const m = game.getCharacter(t);
-    return m && m.health <= 6 && !m.divineShield;
+    if (!m) return false;
+    if (def.destroysMinion) return true;
+    return m.health <= 6 && !m.divineShield;
   });
   if (killable.length > 0) {
     killable.sort((a, b) => game.getCharacter(b).attack - game.getCharacter(a).attack);

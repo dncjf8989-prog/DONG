@@ -18,6 +18,7 @@ export const CATEGORY_META = {
   silence:       { label: '침묵',          color: '#8a8a8a', icon: '🔇' },
   legendary:     { label: '전설',          color: '#e8b64a', icon: '👑' },
   trample:       { label: '돌파',          color: '#c9622f', icon: '🐘' },
+  shadow:        { label: '어둠의 낱말',   color: '#6b3fae', icon: '🌑' },
 };
 
 // 게임에서 쓰이는 키워드 설명 목록 - 용어집 화면에 표시됩니다.
@@ -61,7 +62,7 @@ export const CARD_DB = [
     keywords: { taunt: true }, category: 'taunt', art: '🌿', text: '도발 (상대는 이 미니언부터 공격해야 함)' },
 
   // ---- 신성한 보호막 ----
-  { id: 'argent_squire', name: '은빛 종자', cost: 1, type: 'minion', attack: 1, health: 1, copies: 1,
+  { id: 'argent_squire', name: '은빛 종자', cost: 1, type: 'minion', attack: 1, health: 1, copies: 2,
     keywords: { divineShield: true }, category: 'divine_shield', art: '⚔️', text: '신성한 보호막 (처음 받는 피해 무효화)' },
 
   // ---- 돌진 ----
@@ -69,10 +70,10 @@ export const CARD_DB = [
     keywords: { charge: true }, category: 'charge', art: '🐎', text: '돌진 (소환된 턴에 바로 공격 가능)' },
 
   // ---- 돌파 (하급 몬스터는 갖지 못하는 고급 능력) ----
-  { id: 'rampaging_rhino', name: '성난 코뿔소', cost: 5, type: 'minion', attack: 5, health: 5, copies: 1,
+  { id: 'rampaging_rhino', name: '성난 코뿔소', cost: 5, type: 'minion', attack: 3, health: 5, copies: 1,
     keywords: { trample: true }, category: 'trample', art: '🦏',
     text: '돌파 (막고 있는 미니언 체력을 넘는 피해는 영웅에게 그대로 들어감)' },
-  { id: 'rampaging_giant', name: '폭주하는 거인', cost: 7, type: 'minion', attack: 7, health: 6, copies: 1,
+  { id: 'rampaging_giant', name: '폭주하는 거인', cost: 7, type: 'minion', attack: 5, health: 6, copies: 1,
     keywords: { trample: true }, category: 'trample', art: '🗿',
     text: '돌파 (막고 있는 미니언 체력을 넘는 피해는 영웅에게 그대로 들어감)' },
 
@@ -175,7 +176,7 @@ export const CARD_DB = [
     spellEffect: (game, casterIdx, target) => { game.freezeCharacter(target); } },
 
   // ---- 침묵 ----
-  { id: 'silence_owl', name: '침묵의 부엉이', cost: 2, type: 'minion', attack: 1, health: 3, copies: 1,
+  { id: 'silence_owl', name: '침묵의 부엉이', cost: 2, type: 'minion', attack: 2, health: 3, copies: 2,
     category: 'silence', art: '🦉',
     text: '전투의 함성: 대상 미니언을 침묵시킵니다 (모든 특수 능력 제거).',
     requiresTarget: true, targetType: 'any_minion',
@@ -185,6 +186,30 @@ export const CARD_DB = [
     text: '대상 미니언을 침묵시킵니다 (모든 특수 능력 제거).',
     requiresTarget: true, targetType: 'any_minion',
     spellEffect: (game, casterIdx, target) => { game.silenceMinion(target); } },
+
+  // ---- 어둠의 낱말 (사제 전용 - 실질적인 승리 수단) ----
+  { id: 'mind_blast', name: '정신 강타', cost: 3, type: 'spell', copies: 2,
+    category: 'shadow', art: '🌑',
+    text: '대상에게 피해를 4 줍니다.',
+    requiresTarget: true, targetType: 'any',
+    spellEffect: (game, casterIdx, target) => { game.damageCharacter(target, 4); } },
+  { id: 'shadow_word_death', name: '그림자 낱말: 죽음', cost: 2, type: 'spell', copies: 2,
+    category: 'shadow', art: '☠️', destroysMinion: true,
+    text: '대상 적 미니언을 파괴합니다 (신성한 보호막도 무시).',
+    requiresTarget: true, targetType: 'enemy_minion',
+    spellEffect: (game, casterIdx, target) => { game.destroyMinion(target); } },
+  { id: 'guardian_of_light', name: '빛의 수호자', cost: 4, type: 'minion', attack: 4, health: 6, copies: 1,
+    keywords: { taunt: true }, category: 'shadow', art: '🕊️',
+    text: '도발 (상대는 이 미니언부터 공격해야 함)' },
+  { id: 'shadow_disciple', name: '그림자 신도', cost: 3, type: 'minion', attack: 3, health: 4, copies: 2,
+    category: 'shadow', art: '🙏',
+    text: '전투의 함성: 대상의 체력을 4 회복시킵니다.',
+    requiresTarget: true, targetType: 'any',
+    battlecry: (game, casterIdx, target) => { game.healCharacter(target, 4); } },
+  { id: 'holy_nova', name: '신성한 폭발', cost: 3, type: 'spell', copies: 2,
+    category: 'shadow', art: '💥', boardClear: true,
+    text: '적 미니언 전체에게 피해를 3 줍니다.',
+    spellEffect: (game, casterIdx) => { game.damageEnemyBoard(casterIdx, 3); } },
 
   // ---- 소환(토큰) ----
   { id: 'wolf_trainer', name: '늑대 조련사', cost: 2, type: 'minion', attack: 2, health: 2, copies: 1,
@@ -255,21 +280,21 @@ export function getCategoryMeta(category) {
 // ================= 직업(클래스) - 서로 다른 카드 풀과 영웅 능력을 가진 덱 =================
 // 대전 시작 시 플레이어와 AI에게 각각 무작위로 배정되어, 같은 카드 풀을 공유하는
 // "미러전"이 아니라 실제로 다른 덱으로 대결하게 됩니다.
-const NEUTRAL_CATEGORIES = ['vanilla', 'legendary', 'spell_summon'];
+const NEUTRAL_CATEGORIES = ['vanilla', 'legendary', 'spell_summon', 'spell_buff'];
 
 export const CLASSES = [
-  { id: 'warrior', name: '전사', icon: '⚔️', categories: ['taunt', 'charge', 'trample', 'spell_buff'],
-    heroPower: { name: '강타', icon: '⚔️', cost: 2, text: '대상에게 피해를 2 줍니다.',
+  { id: 'warrior', name: '전사', icon: '⚔️', categories: ['taunt', 'charge', 'trample'],
+    heroPower: { name: '강타', icon: '⚔️', cost: 3, text: '대상에게 피해를 1 줍니다.',
       requiresTarget: true, targetType: 'any',
-      effect: (game, casterIdx, target) => { game.damageCharacter(target, 2); } } },
+      effect: (game, casterIdx, target) => { game.damageCharacter(target, 1); } } },
   { id: 'mage', name: '마법사', icon: '🔥', categories: ['spell_damage', 'freeze', 'spell_draw'],
     heroPower: { name: '화염 손가락', icon: '🔥', cost: 2, text: '대상에게 피해를 1 줍니다.',
       requiresTarget: true, targetType: 'any',
       effect: (game, casterIdx, target) => { game.damageCharacter(target, 1); } } },
-  { id: 'priest', name: '사제', icon: '✨', categories: ['spell_heal', 'divine_shield', 'silence'],
-    heroPower: { name: '신성한 손길', icon: '✨', cost: 2, text: '대상의 체력을 2 회복시킵니다.',
+  { id: 'priest', name: '사제', icon: '✨', categories: ['spell_heal', 'divine_shield', 'silence', 'shadow'],
+    heroPower: { name: '신성한 손길', icon: '✨', cost: 2, text: '대상의 체력을 3 회복시킵니다.',
       requiresTarget: true, targetType: 'any',
-      effect: (game, casterIdx, target) => { game.healCharacter(target, 2); } } },
+      effect: (game, casterIdx, target) => { game.healCharacter(target, 3); } } },
   { id: 'rogue', name: '도적', icon: '🗡️', categories: ['stealth', 'deathrattle', 'battlecry'],
     heroPower: { name: '표창 투척', icon: '🗡️', cost: 1, text: '대상에게 피해를 1 줍니다.',
       requiresTarget: true, targetType: 'any',

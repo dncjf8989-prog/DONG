@@ -213,7 +213,7 @@ export class Game {
     const taunts = visible.filter(m => m.taunt);
     const pool = taunts.length > 0 ? taunts : visible;
     const targets = pool.map(m => ({ kind: 'minion', playerIdx: 1 - playerIdx, id: m.id }));
-    if (taunts.length === 0) targets.push({ kind: 'hero', playerIdx: 1 - playerIdx });
+    if (visible.length === 0) targets.push({ kind: 'hero', playerIdx: 1 - playerIdx });
     return targets;
   }
 
@@ -231,7 +231,7 @@ export class Game {
     const validTargets = this.getValidAttackTargets(playerIdx);
     const isValid = validTargets.some(t => t.kind === targetRef.kind &&
       t.playerIdx === targetRef.playerIdx && (t.kind === 'hero' || t.id === targetRef.id));
-    if (!isValid) return { ok: false, reason: '도발 미니언을 먼저 공격해야 합니다.' };
+    if (!isValid) return { ok: false, reason: '적 미니언이 있으면 미니언부터 공격해야 합니다.' };
 
     attacker.canAttack = false;
     attacker.stealth = false;

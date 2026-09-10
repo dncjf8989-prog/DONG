@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>섯다 온라인 - 4~5인 멀티플레이</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div id="screen-lobby" class="screen">
+  <div class="lobby-card">
+    <h1>🎴 섯다 온라인</h1>
+    <p class="subtitle">피망섯다 스타일 · 4~5인 실시간 멀티플레이</p>
+
+    <label>닉네임</label>
+    <input id="nickname" type="text" maxlength="12" placeholder="닉네임을 입력하세요" />
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="create">방 만들기</button>
+      <button class="tab-btn" data-tab="join">방 참가하기</button>
+    </div>
+
+    <div id="tab-create" class="tab-panel active">
+      <label>인원 수 (최대)</label>
+      <select id="maxPlayers">
+        <option value="4">4인</option>
+        <option value="5" selected>5인</option>
+      </select>
+      <label>참가비 (삥 단위)</label>
+      <input id="ante" type="number" value="1000" min="100" step="100" />
+      <label>시작 칩</label>
+      <input id="startingChips" type="number" value="100000" min="1000" step="1000" />
+      <button id="btn-create" class="primary-btn">방 만들기</button>
+    </div>
+
+    <div id="tab-join" class="tab-panel">
+      <label>방 코드</label>
+      <input id="joinCode" type="text" maxlength="5" placeholder="예: AB3XZ" style="text-transform:uppercase" />
+      <button id="btn-join" class="primary-btn">참가하기</button>
+    </div>
+
+    <p id="lobby-error" class="error-text"></p>
+  </div>
+</div>
+
+<div id="screen-game" class="screen hidden">
+  <header class="topbar">
+    <div class="room-info">
+      <span>방 코드: <strong id="room-code">-</strong></span>
+      <button id="btn-copy" title="코드 복사">복사</button>
+    </div>
+    <div class="round-info">
+      <span id="round-label">대기중</span>
+      <span id="ante-label"></span>
+    </div>
+    <button id="btn-leave" class="ghost-btn">나가기</button>
+  </header>
+
+  <div class="table-wrap">
+    <div class="table-oval" id="table-oval">
+      <div class="pot-display">
+        <div class="pot-label">POT</div>
+        <div class="pot-amount" id="pot-amount">0</div>
+        <div class="current-bet" id="current-bet-label"></div>
+      </div>
+      <div id="seats"></div>
+    </div>
+  </div>
+
+  <div id="waiting-panel" class="waiting-panel hidden">
+    <p id="waiting-text">플레이어를 기다리는 중...</p>
+    <button id="btn-start" class="primary-btn hidden">게임 시작</button>
+  </div>
+
+  <div id="action-bar" class="action-bar hidden">
+    <div class="my-cards" id="my-cards"></div>
+    <div class="action-buttons">
+      <button id="act-fold" class="act-btn fold">다이</button>
+      <button id="act-bing" class="act-btn bing">삥</button>
+      <button id="act-call" class="act-btn call">콜</button>
+      <div class="raise-group">
+        <input id="raise-amount" type="number" step="100" />
+        <button id="act-raise" class="act-btn raise">따당(레이즈)</button>
+      </div>
+      <button id="act-allin" class="act-btn allin">올인</button>
+    </div>
+    <div class="timer-bar"><div id="timer-fill" class="timer-fill"></div></div>
+  </div>
+
+  <div class="side-panel">
+    <div class="log-box" id="log-box"></div>
+    <div class="chat-box">
+      <div class="chat-log" id="chat-log"></div>
+      <form id="chat-form">
+        <input id="chat-input" type="text" maxlength="200" placeholder="채팅 입력..." autocomplete="off" />
+        <button type="submit">전송</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="client.js"></script>
+</body>
+</html>

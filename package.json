@@ -1,0 +1,15 @@
+{
+  "name": "seotda-online",
+  "version": "1.0.0",
+  "description": "피망섯다 스타일의 4~5인 멀티플레이 섯다(화투) 온라인 게임",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}

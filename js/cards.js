@@ -19,6 +19,8 @@ export const CATEGORY_META = {
   legendary:     { label: '전설',          color: '#e8b64a', icon: '👑' },
   trample:       { label: '돌파',          color: '#c9622f', icon: '🐘' },
   shadow:        { label: '어둠의 낱말',   color: '#6b3fae', icon: '🌑' },
+  warcry:        { label: '전쟁의 함성',   color: '#a8452f', icon: '🪓' },
+  assassination: { label: '암살',          color: '#7a2f42', icon: '🩸' },
 };
 
 // 게임에서 쓰이는 키워드 설명 목록 - 용어집 화면에 표시됩니다.
@@ -76,6 +78,18 @@ export const CARD_DB = [
   { id: 'rampaging_giant', name: '폭주하는 거인', cost: 7, type: 'minion', attack: 5, health: 6, copies: 1,
     keywords: { trample: true }, category: 'trample', art: '🗿',
     text: '돌파 (막고 있는 미니언 체력을 넘는 피해는 영웅에게 그대로 들어감)' },
+
+  // ---- 전쟁의 함성 (전사 전용 주문 - 미니언에게 힘을 실어주는 전술) ----
+  { id: 'shield_wall', name: '방벽의 함성', cost: 3, type: 'spell', copies: 2,
+    category: 'warcry', art: '🪖',
+    text: '대상 아군 미니언에게 +0/+3과 도발을 부여합니다.',
+    requiresTarget: true, targetType: 'friendly_minion',
+    spellEffect: (game, casterIdx, target) => { game.buffMinion(target, 0, 3); game.grantTaunt(target); } },
+  { id: 'war_charge', name: '결전의 돌격', cost: 3, type: 'spell', copies: 2,
+    category: 'warcry', art: '🏇',
+    text: '대상 아군 미니언에게 +2/+0을 부여하고 이번 턴 즉시 공격할 수 있게 합니다.',
+    requiresTarget: true, targetType: 'friendly_minion',
+    spellEffect: (game, casterIdx, target) => { game.buffMinion(target, 2, 0); game.grantCharge(target); } },
 
   // ---- 전투의 함성(소환 시 효과) ----
   { id: 'novice_engineer', name: '견습 기술자', cost: 2, type: 'minion', attack: 1, health: 1, copies: 1,
@@ -141,6 +155,12 @@ export const CARD_DB = [
     text: '내 영웅의 체력을 8 회복시킵니다.',
     spellEffect: (game, casterIdx) => { game.healCharacter({ kind: 'hero', playerIdx: casterIdx }, 8); } },
 
+  { id: 'lesser_heal', name: '치유의 기도', cost: 1, type: 'spell', copies: 2,
+    category: 'spell_heal', art: '🙌',
+    text: '대상의 체력을 4 회복시킵니다.',
+    requiresTarget: true, targetType: 'any',
+    spellEffect: (game, casterIdx, target) => { game.healCharacter(target, 4); } },
+
   { id: 'arcane_intellect', name: '비전 지능', cost: 3, type: 'spell', copies: 1,
     category: 'spell_draw', art: '📖',
     text: '카드를 2장 뽑습니다.',
@@ -152,11 +172,29 @@ export const CARD_DB = [
     requiresTarget: true, targetType: 'friendly_minion',
     spellEffect: (game, casterIdx, target) => { game.buffMinion(target, 2, 2); } },
 
+  { id: 'battlefield_blessing', name: '전장의 축복', cost: 1, type: 'spell', copies: 2,
+    category: 'spell_buff', art: '🍀',
+    text: '아군 미니언에게 +1/+1을 부여합니다.',
+    requiresTarget: true, targetType: 'friendly_minion',
+    spellEffect: (game, casterIdx, target) => { game.buffMinion(target, 1, 1); } },
+
   // ---- 은신 ----
   { id: 'stealth_scout', name: '은신 정찰병', cost: 2, type: 'minion', attack: 2, health: 1, copies: 1,
     keywords: { stealth: true }, category: 'stealth', art: '🥷', text: '은신 (상대에게 보이지 않음, 공격하면 해제)' },
   { id: 'shadowstalker', name: '어둠추적자', cost: 4, type: 'minion', attack: 5, health: 3, copies: 1,
     keywords: { stealth: true }, category: 'stealth', art: '🦇', text: '은신 (상대에게 보이지 않음, 공격하면 해제)' },
+
+  // ---- 암살 (도적 전용 주문 - 은신과 기습으로 상대를 노리는 기술) ----
+  { id: 'shadowstep', name: '그림자 걸음', cost: 2, type: 'spell', copies: 2,
+    category: 'assassination', art: '🌫️',
+    text: '대상 아군 미니언에게 +1/+1과 은신을 부여합니다.',
+    requiresTarget: true, targetType: 'friendly_minion',
+    spellEffect: (game, casterIdx, target) => { game.buffMinion(target, 1, 1); game.grantStealth(target); } },
+  { id: 'ambush', name: '기습', cost: 2, type: 'spell', copies: 2,
+    category: 'assassination', art: '🩸',
+    text: '대상 적 미니언에게 피해를 3 줍니다.',
+    requiresTarget: true, targetType: 'enemy_minion',
+    spellEffect: (game, casterIdx, target) => { game.damageCharacter(target, 3); } },
 
   // ---- 빙결 ----
   { id: 'frost_elemental', name: '서리 정령', cost: 4, type: 'minion', attack: 3, health: 3, copies: 1,
@@ -174,6 +212,12 @@ export const CARD_DB = [
     text: '대상 적 미니언을 얼립니다 (다음 공격 기회를 사용하지 못함).',
     requiresTarget: true, targetType: 'enemy_minion',
     spellEffect: (game, casterIdx, target) => { game.freezeCharacter(target); } },
+
+  { id: 'frostfire_bolt', name: '서리불꽃 화살', cost: 3, type: 'spell', copies: 1,
+    category: 'freeze', art: '🧨',
+    text: '대상 적 미니언에게 피해를 3 주고 얼립니다.',
+    requiresTarget: true, targetType: 'enemy_minion',
+    spellEffect: (game, casterIdx, target) => { game.damageCharacter(target, 3); game.freezeCharacter(target); } },
 
   // ---- 침묵 ----
   { id: 'silence_owl', name: '침묵의 부엉이', cost: 2, type: 'minion', attack: 2, health: 3, copies: 2,
@@ -283,7 +327,7 @@ export function getCategoryMeta(category) {
 const NEUTRAL_CATEGORIES = ['vanilla', 'legendary', 'spell_summon', 'spell_buff'];
 
 export const CLASSES = [
-  { id: 'warrior', name: '전사', icon: '⚔️', categories: ['taunt', 'charge', 'trample'],
+  { id: 'warrior', name: '전사', icon: '⚔️', categories: ['taunt', 'charge', 'trample', 'warcry'],
     heroPower: { name: '강타', icon: '⚔️', cost: 3, text: '대상에게 피해를 1 줍니다.',
       requiresTarget: true, targetType: 'any',
       effect: (game, casterIdx, target) => { game.damageCharacter(target, 1); } } },
@@ -295,7 +339,7 @@ export const CLASSES = [
     heroPower: { name: '신성한 손길', icon: '✨', cost: 2, text: '대상의 체력을 3 회복시킵니다.',
       requiresTarget: true, targetType: 'any',
       effect: (game, casterIdx, target) => { game.healCharacter(target, 3); } } },
-  { id: 'rogue', name: '도적', icon: '🗡️', categories: ['stealth', 'deathrattle', 'battlecry'],
+  { id: 'rogue', name: '도적', icon: '🗡️', categories: ['stealth', 'deathrattle', 'battlecry', 'assassination'],
     heroPower: { name: '표창 투척', icon: '🗡️', cost: 1, text: '대상에게 피해를 1 줍니다.',
       requiresTarget: true, targetType: 'any',
       effect: (game, casterIdx, target) => { game.damageCharacter(target, 1); } } },

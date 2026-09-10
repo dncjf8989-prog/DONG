@@ -320,6 +320,29 @@ export class Game {
     minion.canAttack = false;
   }
 
+  grantTaunt(ref) {
+    if (!ref || ref.kind !== 'minion') return;
+    const minion = this.findMinion(ref.playerIdx, ref.id);
+    if (!minion) return;
+    minion.taunt = true;
+  }
+
+  // 소환 상태와 무관하게 대상 미니언이 지금 바로 공격할 수 있게 합니다 (돌진 부여와 동일한 효과).
+  grantCharge(ref) {
+    if (!ref || ref.kind !== 'minion') return;
+    const minion = this.findMinion(ref.playerIdx, ref.id);
+    if (!minion) return;
+    minion.summoningSick = false;
+    minion.canAttack = !minion.frozen;
+  }
+
+  grantStealth(ref) {
+    if (!ref || ref.kind !== 'minion') return;
+    const minion = this.findMinion(ref.playerIdx, ref.id);
+    if (!minion) return;
+    minion.stealth = true;
+  }
+
   silenceMinion(ref) {
     if (!ref || ref.kind !== 'minion') return;
     const minion = this.findMinion(ref.playerIdx, ref.id);

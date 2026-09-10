@@ -21,6 +21,10 @@ export const CATEGORY_META = {
   shadow:        { label: '어둠의 낱말',   color: '#6b3fae', icon: '🌑' },
   warcry:        { label: '전쟁의 함성',   color: '#a8452f', icon: '🪓' },
   assassination: { label: '암살',          color: '#7a2f42', icon: '🩸' },
+  warrior_corps: { label: '전사단',        color: '#6b3520', icon: '⚔️' },
+  arcane_being:  { label: '비전 생물',     color: '#3f5ea8', icon: '🔮' },
+  faithful:      { label: '신실한 자',     color: '#e8dcc0', icon: '🕊️' },
+  underworld:    { label: '암흑가',        color: '#2a1f2e', icon: '🗡️' },
 };
 
 // 게임에서 쓰이는 키워드 설명 목록 - 용어집 화면에 표시됩니다.
@@ -39,19 +43,61 @@ export const KEYWORD_GLOSSARY = [
 ];
 
 export const CARD_DB = [
-  // ---- 바닐라(효과 없는) 미니언 ----
-  { id: 'wisp', name: '작은 정령', cost: 1, type: 'minion', attack: 1, health: 1, copies: 2,
-    category: 'vanilla', art: '👻', text: '' },
-  { id: 'raptor', name: '습지 랩터', cost: 2, type: 'minion', attack: 3, health: 2, copies: 2,
-    category: 'vanilla', art: '🦖', text: '' },
-  { id: 'crocolisk', name: '강 악어', cost: 2, type: 'minion', attack: 2, health: 3, copies: 2,
-    category: 'vanilla', art: '🐊', text: '' },
-  { id: 'yeti', name: '눈보라 예티', cost: 4, type: 'minion', attack: 4, health: 5, copies: 1,
-    category: 'vanilla', art: '🐻‍❄️', text: '' },
-  { id: 'ogre', name: '바위주먹 오우거', cost: 6, type: 'minion', attack: 6, health: 7, copies: 1,
-    category: 'vanilla', art: '👹', text: '' },
-  { id: 'ancient_wyrm', name: '고대 비룡', cost: 8, type: 'minion', attack: 8, health: 8, copies: 1,
-    category: 'vanilla', art: '🐉', text: '' },
+  // ---- 전사단 (전사 전용 - 기본 병력) ----
+  { id: 'recruit', name: '신병', cost: 1, type: 'minion', attack: 1, health: 1, copies: 2,
+    category: 'warrior_corps', art: '🗡️', text: '' },
+  { id: 'berserker', name: '광전사', cost: 2, type: 'minion', attack: 3, health: 2, copies: 2,
+    category: 'warrior_corps', art: '🪓', text: '' },
+  { id: 'shield_recruit', name: '방패 보병', cost: 2, type: 'minion', attack: 2, health: 3, copies: 2,
+    category: 'warrior_corps', art: '🛡️', text: '' },
+  { id: 'veteran_gladiator', name: '노련한 검투사', cost: 4, type: 'minion', attack: 4, health: 5, copies: 1,
+    category: 'warrior_corps', art: '⚔️', text: '' },
+  { id: 'war_giant', name: '전쟁 거인', cost: 6, type: 'minion', attack: 6, health: 7, copies: 1,
+    category: 'warrior_corps', art: '🔨', text: '' },
+  { id: 'warlord', name: '전쟁군주', cost: 8, type: 'minion', attack: 8, health: 8, copies: 1,
+    category: 'warrior_corps', art: '🦾', text: '' },
+
+  // ---- 비전 생물 (마법사 전용 - 원소/비전 존재) ----
+  { id: 'apprentice', name: '견습 마법사', cost: 1, type: 'minion', attack: 1, health: 1, copies: 2,
+    category: 'arcane_being', art: '🧙', text: '' },
+  { id: 'arcanist', name: '비전술사', cost: 2, type: 'minion', attack: 3, health: 2, copies: 2,
+    category: 'arcane_being', art: '🔮', text: '' },
+  { id: 'arcane_construct', name: '비전 골렘', cost: 2, type: 'minion', attack: 2, health: 3, copies: 2,
+    category: 'arcane_being', art: '🌀', text: '' },
+  { id: 'fire_elemental', name: '불의 정령', cost: 4, type: 'minion', attack: 4, health: 5, copies: 1,
+    category: 'arcane_being', art: '🔥', text: '' },
+  { id: 'arcane_colossus', name: '비전 거상', cost: 6, type: 'minion', attack: 6, health: 7, copies: 1,
+    category: 'arcane_being', art: '💠', text: '' },
+  { id: 'archmage', name: '대마법사', cost: 8, type: 'minion', attack: 8, health: 8, copies: 1,
+    category: 'arcane_being', art: '🪄', text: '' },
+
+  // ---- 신실한 자 (사제 전용 - 신성한 존재) ----
+  { id: 'acolyte', name: '사제 수련생', cost: 1, type: 'minion', attack: 1, health: 1, copies: 2,
+    category: 'faithful', art: '🕯️', text: '' },
+  { id: 'zealot', name: '광신도', cost: 2, type: 'minion', attack: 3, health: 2, copies: 2,
+    category: 'faithful', art: '✝️', text: '' },
+  { id: 'guardian_spirit', name: '수호 영혼', cost: 2, type: 'minion', attack: 2, health: 3, copies: 2,
+    category: 'faithful', art: '👻', text: '' },
+  { id: 'seraph', name: '세라핌', cost: 4, type: 'minion', attack: 4, health: 5, copies: 1,
+    category: 'faithful', art: '👼', text: '' },
+  { id: 'archon_of_light', name: '빛의 대천사', cost: 6, type: 'minion', attack: 6, health: 7, copies: 1,
+    category: 'faithful', art: '😇', text: '' },
+  { id: 'avatar_of_light', name: '빛의 화신', cost: 8, type: 'minion', attack: 8, health: 8, copies: 1,
+    category: 'faithful', art: '🌟', text: '' },
+
+  // ---- 암흑가 (도적 전용 - 뒷골목의 무리) ----
+  { id: 'footpad', name: '소매치기', cost: 1, type: 'minion', attack: 1, health: 1, copies: 2,
+    category: 'underworld', art: '🔪', text: '' },
+  { id: 'cutthroat', name: '자객', cost: 2, type: 'minion', attack: 3, health: 2, copies: 2,
+    category: 'underworld', art: '🗡️', text: '' },
+  { id: 'saboteur', name: '파괴공작원', cost: 2, type: 'minion', attack: 2, health: 3, copies: 2,
+    category: 'underworld', art: '🎭', text: '' },
+  { id: 'poisoner', name: '독살자', cost: 4, type: 'minion', attack: 4, health: 5, copies: 1,
+    category: 'underworld', art: '🧪', text: '' },
+  { id: 'shadow_lord', name: '그림자 군주', cost: 6, type: 'minion', attack: 6, health: 7, copies: 1,
+    category: 'underworld', art: '🌑', text: '' },
+  { id: 'crime_kingpin', name: '암흑가의 대부', cost: 8, type: 'minion', attack: 8, health: 8, copies: 1,
+    category: 'underworld', art: '💰', text: '' },
 
   // ---- 도발 미니언 ----
   { id: 'footman', name: '골드샤이어 보병', cost: 1, type: 'minion', attack: 1, health: 2, copies: 2,
@@ -324,22 +370,22 @@ export function getCategoryMeta(category) {
 // ================= 직업(클래스) - 서로 다른 카드 풀과 영웅 능력을 가진 덱 =================
 // 대전 시작 시 플레이어와 AI에게 각각 무작위로 배정되어, 같은 카드 풀을 공유하는
 // "미러전"이 아니라 실제로 다른 덱으로 대결하게 됩니다.
-const NEUTRAL_CATEGORIES = ['vanilla', 'legendary', 'spell_summon', 'spell_buff'];
+const NEUTRAL_CATEGORIES = ['legendary', 'spell_summon', 'spell_buff'];
 
 export const CLASSES = [
-  { id: 'warrior', name: '전사', icon: '⚔️', categories: ['taunt', 'charge', 'trample', 'warcry'],
+  { id: 'warrior', name: '전사', icon: '⚔️', categories: ['taunt', 'charge', 'trample', 'warcry', 'warrior_corps'],
     heroPower: { name: '강타', icon: '⚔️', cost: 3, text: '대상에게 피해를 1 줍니다.',
       requiresTarget: true, targetType: 'any',
       effect: (game, casterIdx, target) => { game.damageCharacter(target, 1); } } },
-  { id: 'mage', name: '마법사', icon: '🔥', categories: ['spell_damage', 'freeze', 'spell_draw'],
+  { id: 'mage', name: '마법사', icon: '🔥', categories: ['spell_damage', 'freeze', 'spell_draw', 'arcane_being'],
     heroPower: { name: '화염 손가락', icon: '🔥', cost: 2, text: '대상에게 피해를 1 줍니다.',
       requiresTarget: true, targetType: 'any',
       effect: (game, casterIdx, target) => { game.damageCharacter(target, 1); } } },
-  { id: 'priest', name: '사제', icon: '✨', categories: ['spell_heal', 'divine_shield', 'silence', 'shadow'],
+  { id: 'priest', name: '사제', icon: '✨', categories: ['spell_heal', 'divine_shield', 'silence', 'shadow', 'faithful'],
     heroPower: { name: '신성한 손길', icon: '✨', cost: 2, text: '대상의 체력을 3 회복시킵니다.',
       requiresTarget: true, targetType: 'any',
       effect: (game, casterIdx, target) => { game.healCharacter(target, 3); } } },
-  { id: 'rogue', name: '도적', icon: '🗡️', categories: ['stealth', 'deathrattle', 'battlecry', 'assassination'],
+  { id: 'rogue', name: '도적', icon: '🗡️', categories: ['stealth', 'deathrattle', 'battlecry', 'assassination', 'underworld'],
     heroPower: { name: '표창 투척', icon: '🗡️', cost: 1, text: '대상에게 피해를 1 줍니다.',
       requiresTarget: true, targetType: 'any',
       effect: (game, casterIdx, target) => { game.damageCharacter(target, 1); } } },

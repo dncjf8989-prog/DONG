@@ -1,4 +1,5 @@
 :root {
+  /* 보석 색상 (라이트/다크 공통) */
   --gem-white: #efe9da;
   --gem-white-fg: #3a352a;
   --gem-blue: #2f6fed;
@@ -7,19 +8,79 @@
   --gem-black: #2b2b2b;
   --gem-gold: #d9a441;
 
+  /* 라이트 테마 (기본) */
   --bg: #f6f5f1;
   --panel: #ffffff;
   --border: #ddd8c9;
   --text: #2b2a26;
   --muted: #83806f;
   --accent: #8a5a2b;
+  --accent-fg: #ffffff;
+
+  --card-bg: #fdfcf8;
+  --card-empty-a: #f0efe9;
+  --card-empty-b: #e7e5da;
+  --noble-bg: #efe6d0;
+  --modal-bg: #ffffff;
+  --modal-shadow: rgba(43, 33, 14, 0.22);
+  --overlay: rgba(30, 24, 12, 0.45);
+  --win-bg: #fff4e0;
+  --chip-border: rgba(30, 24, 12, 0.15);
+  --swatch-border: rgba(30, 24, 12, 0.2);
+  --active-ring: rgba(138, 90, 43, 0.18);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1b1812;
+    --panel: #242019;
+    --border: #3d372a;
+    --text: #ece6d8;
+    --muted: #a89d84;
+    --accent: #e0b25a;
+    --accent-fg: #2a1c04;
+
+    --card-bg: #2c271d;
+    --card-empty-a: #262218;
+    --card-empty-b: #201d15;
+    --noble-bg: #3a3120;
+    --modal-bg: #2a2620;
+    --modal-shadow: rgba(0, 0, 0, 0.55);
+    --overlay: rgba(0, 0, 0, 0.6);
+    --win-bg: #3a2e12;
+    --chip-border: rgba(255, 255, 255, 0.16);
+    --swatch-border: rgba(255, 255, 255, 0.25);
+    --active-ring: rgba(224, 178, 90, 0.22);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #1b1812;
+  --panel: #242019;
+  --border: #3d372a;
+  --text: #ece6d8;
+  --muted: #a89d84;
+  --accent: #e0b25a;
+  --accent-fg: #2a1c04;
+
+  --card-bg: #2c271d;
+  --card-empty-a: #262218;
+  --card-empty-b: #201d15;
+  --noble-bg: #3a3120;
+  --modal-bg: #2a2620;
+  --modal-shadow: rgba(0, 0, 0, 0.55);
+  --overlay: rgba(0, 0, 0, 0.6);
+  --win-bg: #3a2e12;
+  --chip-border: rgba(255, 255, 255, 0.16);
+  --swatch-border: rgba(255, 255, 255, 0.25);
+  --active-ring: rgba(224, 178, 90, 0.22);
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Pretendard, "Noto Sans KR", sans-serif;
+  font-family: "Noto Sans KR", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: var(--bg);
   color: var(--text);
 }
@@ -28,27 +89,37 @@ body {
   max-width: 1080px;
   margin: 0 auto;
   padding: 16px;
+  padding-block: 20px 40px;
 }
 
 #header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
 }
 
 #header h1 {
-  font-size: 22px;
+  font-family: "Gowun Batang", "Noto Serif KR", serif;
+  font-size: 26px;
+  font-weight: 700;
   margin: 0;
+  letter-spacing: 0.01em;
+  text-wrap: balance;
 }
 
 .badge {
-  font-size: 12px;
+  font-family: "Noto Sans KR", sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
   background: var(--accent);
-  color: #fff;
-  padding: 2px 8px;
+  color: var(--accent-fg);
+  padding: 3px 9px;
   border-radius: 10px;
-  margin-left: 6px;
+  margin-left: 8px;
   vertical-align: middle;
 }
 
@@ -58,30 +129,32 @@ button {
   background: var(--panel);
   border-radius: 6px;
   padding: 6px 10px;
+  font-family: inherit;
   font-size: 13px;
   color: var(--text);
 }
 button:hover:not(:disabled) { border-color: var(--accent); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 #newGameBtn {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-fg);
   border: none;
   padding: 8px 14px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .banner {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 10px 14px;
   margin-bottom: 12px;
   font-size: 14px;
 }
 .banner.over {
-  background: #fff4e0;
+  background: var(--win-bg);
   border-color: var(--gem-gold);
   font-weight: 700;
 }
@@ -96,7 +169,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   width: 70px;
   height: 70px;
   border-radius: 8px;
-  background: #efe6d0;
+  background: var(--noble-bg);
   border: 2px solid var(--gem-gold);
   display: flex;
   flex-direction: column;
@@ -105,7 +178,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   gap: 4px;
 }
 .noble-tile.empty { visibility: hidden; }
-.noble-points { font-weight: 700; font-size: 16px; }
+.noble-points { font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums; }
 .noble-req { display: flex; gap: 3px; }
 
 #board {
@@ -124,7 +197,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   color: var(--muted);
   margin-bottom: 6px;
 }
-.deck-count { font-size: 11px; }
+.deck-count { font-size: 11px; font-variant-numeric: tabular-nums; }
 
 .tier-cards {
   display: flex;
@@ -137,30 +210,30 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   min-height: 120px;
   border-radius: 8px;
   border: 2px solid var(--border);
-  background: #fdfcf8;
+  background: var(--card-bg);
   padding: 6px;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 .card-tile.empty {
-  background: repeating-linear-gradient(45deg, #f0efe9, #f0efe9 6px, #e7e5da 6px, #e7e5da 12px);
+  background: repeating-linear-gradient(45deg, var(--card-empty-a), var(--card-empty-a) 6px, var(--card-empty-b) 6px, var(--card-empty-b) 12px);
   border-style: dashed;
 }
-.card-tile.unaffordable { opacity: 0.65; }
+.card-tile.unaffordable { opacity: 0.6; }
 
 .card-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
-.card-points { font-weight: 800; font-size: 15px; min-width: 14px; }
+.card-points { font-weight: 800; font-size: 15px; min-width: 14px; font-variant-numeric: tabular-nums; }
 
 .card-gem {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  border: 1px solid rgba(0,0,0,0.2);
+  border: 1px solid var(--swatch-border);
 }
 
 .card-cost {
@@ -179,7 +252,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   border-radius: 50%;
   font-size: 11px;
   font-weight: 700;
-  border: 1px solid rgba(0,0,0,0.15);
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--swatch-border);
 }
 
 .card-actions {
@@ -220,11 +294,11 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   min-width: 64px;
   padding: 8px 6px;
   border-radius: 8px;
-  border: 1px solid rgba(0,0,0,0.15);
+  border: 1px solid var(--chip-border);
 }
 .bank-chip.static { cursor: default; }
 .chip-label { font-size: 10px; }
-.chip-count { font-size: 16px; font-weight: 800; }
+.chip-count { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
 #controls {
   background: var(--panel);
@@ -262,17 +336,27 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 .player-panel.active {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(138, 90, 43, 0.15);
+  box-shadow: 0 0 0 2px var(--active-ring);
 }
-.player-panel h3 { margin: 0 0 4px; font-size: 15px; display: flex; align-items: center; gap: 6px; }
+.player-panel h3 {
+  font-family: "Gowun Batang", "Noto Serif KR", serif;
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .turn-tag {
+  font-family: "Noto Sans KR", sans-serif;
   font-size: 10px;
+  font-weight: 500;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-fg);
   padding: 1px 6px;
   border-radius: 8px;
 }
-.player-points { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.player-points { font-size: 13px; font-weight: 700; margin-bottom: 6px; font-variant-numeric: tabular-nums; }
 .noble-mini { color: var(--gem-gold); }
 
 .player-row {
@@ -304,7 +388,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 #modalOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(20, 18, 10, 0.45);
+  background: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -312,14 +396,18 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 #modalOverlay.hidden { display: none; }
 #modal {
-  background: #fff;
+  background: var(--modal-bg);
   border-radius: 10px;
   padding: 20px;
   max-width: 420px;
   width: 90%;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  box-shadow: 0 10px 30px var(--modal-shadow);
 }
-#modal h3 { margin-top: 0; font-size: 16px; }
+#modal h3 {
+  font-family: "Gowun Batang", "Noto Serif KR", serif;
+  margin-top: 0;
+  font-size: 17px;
+}
 .modal-tokens, .modal-nobles {
   display: flex;
   flex-wrap: wrap;
@@ -337,4 +425,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   #players { grid-template-columns: 1fr; }
   .card-tile { width: 84px; min-height: 110px; }
   #header { flex-wrap: wrap; gap: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
 }

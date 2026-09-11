@@ -145,6 +145,86 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   font-weight: 700;
 }
 
+#modeTabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.mode-tab {
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.mode-tab.active {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+
+#netPanel[hidden] { display: none; }
+.net-box {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  text-align: center;
+}
+.net-box.net-warn { border-color: var(--gem-red); }
+.net-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.net-or { color: var(--muted); font-size: 12px; }
+#joinCodeInput {
+  width: 110px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: center;
+}
+.room-code-label { font-size: 12px; color: var(--muted); }
+.room-code {
+  font-family: "Gowun Batang", "Noto Serif KR", serif;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+  margin: 4px 0;
+}
+.net-sub { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.net-strip {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.net-leave { font-size: 11px; padding: 4px 10px; }
+.you-tag {
+  font-size: 10px;
+  font-weight: 500;
+  background: var(--gem-gold);
+  color: #3a2a05;
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
 .banner {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -233,7 +313,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  border: 1px solid var(--swatch-border);
+  border: 2px solid var(--gem-gold);
+  box-shadow: 0 0 0 1px var(--card-bg);
 }
 
 .card-cost {

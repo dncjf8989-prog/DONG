@@ -65,6 +65,12 @@ function currentPlayer() {
   return G.players[G.currentIndex];
 }
 
+// 온라인 대전 중에는 자신의 차례일 때만 행동할 수 있다. (net.js가 window.NET을 채워준다)
+function canAct() {
+  if (!window.NET || NET.mode !== 'online') return true;
+  return NET.seat === G.currentIndex;
+}
+
 function totalTokens(player) {
   return GEMS.reduce((s, c) => s + player.tokens[c], 0) + player.tokens.gold;
 }
@@ -76,7 +82,7 @@ function log(msg) {
 
 // ============ 보석 가져오기(take) ============
 function tryAddPending(color) {
-  if (G.gameOver || G.discardState || G.nobleChoice) return;
+  if (G.gameOver || G.discardState || G.nobleChoice || !canAct()) return;
   if (G.bank[color] <= 0) return;
 
   if (G.pending.length === 0) {
@@ -104,7 +110,7 @@ function removePendingAt(idx) {
 }
 
 function confirmTake() {
-  if (G.pending.length === 0) return;
+  if (G.pending.length === 0 || !canAct()) return;
   const player = currentPlayer();
   G.pending.forEach((c) => {
     G.bank[c]--;
@@ -142,7 +148,7 @@ function drawFromDeck(tierIdx) {
 }
 
 function buyBoardCard(tierIdx, idx) {
-  if (G.pending.length > 0 || G.discardState || G.gameOver || G.nobleChoice) return;
+  if (G.pending.length > 0 || G.discardState || G.gameOver || G.nobleChoice || !canAct()) return;
   const card = G.tiers[tierIdx].faceUp[idx];
   if (!card) return;
   const player = currentPlayer();
@@ -168,7 +174,7 @@ function buyBoardCard(tierIdx, idx) {
 }
 
 function buyReservedCard(idx) {
-  if (G.pending.length > 0 || G.discardState || G.gameOver || G.nobleChoice) return;
+  if (G.pending.length > 0 || G.discardState || G.gameOver || G.nobleChoice || !canAct()) return;
   const player = currentPlayer();
   const card = player.reserved[idx];
   if (!card) return;
@@ -194,7 +200,7 @@ function buyReservedCard(idx) {
 }
 
 function reserveCard(tierIdx, idx) {
-  if (G.pending.length > 0 || G.discardState || G.gameOver || G.nobleChoice) return;
+  if (G.pending.length > 0 || G.discardState || G.gameOver || G.nobleChoice || !canAct()) return;
   const player = currentPlayer();
   if (player.reserved.length >= 3) {
     log('예약 카드는 최대 3장까지 가능합니다.');
@@ -284,11 +290,20 @@ function finishTurnFlow(player) {
     const isLastPlayerOfRound = G.currentIndex === G.players.length - 1;
     if (isLastPlayerOfRound && G.players.some((p) => p.points >= 15)) {
       endGame();
+      notifyNet();
       return;
     }
     G.currentIndex = (G.currentIndex + 1) % G.players.length;
     render();
+    notifyNet();
   });
+}
+
+// 온라인 대전 중이면 턴이 끝날 때마다 상대방에게 최신 상태를 전송한다.
+function notifyNet() {
+  if (window.NET && NET.mode === 'online' && typeof NET.commit === 'function') {
+    NET.commit();
+  }
 }
 
 function endGame() {
@@ -352,9 +367,13 @@ function renderBanner() {
   const el = document.getElementById('banner');
   if (G.gameOver) {
     el.innerHTML = `<div class="banner over">${G.winnerText}</div>`;
-  } else {
-    el.innerHTML = `<div class="banner">${currentPlayer().name}의 차례입니다. (목표: 15점 이상)</div>`;
+    return;
   }
+  let turnText = `${currentPlayer().name}의 차례입니다. (목표: 15점 이상)`;
+  if (window.NET && NET.mode === 'online') {
+    turnText = canAct() ? '당신의 차례입니다. (목표: 15점 이상)' : `${currentPlayer().name}(상대방)의 차례를 기다리는 중입니다.`;
+  }
+  el.innerHTML = `<div class="banner">${turnText}</div>`;
 }
 
 function renderNobles() {
@@ -381,7 +400,7 @@ function renderBoard() {
       .map((card, idx) => {
         if (!card) return `<div class="card-tile empty"></div>`;
         const afford = player ? affordability(player, card.cost).ok : false;
-        const actionEnabled = !G.gameOver && G.pending.length === 0 && !G.discardState && !G.nobleChoice;
+        const actionEnabled = !G.gameOver && G.pending.length === 0 && !G.discardState && !G.nobleChoice && canAct();
         return renderCardTile(card, {
           buyable: true,
           reservable: true,
@@ -401,7 +420,7 @@ function renderBoard() {
 
 function renderBank() {
   const el = document.getElementById('bank');
-  const clickable = !G.gameOver && !G.discardState;
+  const clickable = !G.gameOver && !G.discardState && !G.nobleChoice && canAct();
   const chips = GEMS.map((c) => {
     return `<button class="bank-chip gem-${c}" data-take="${c}" ${clickable && G.bank[c] > 0 ? '' : 'disabled'}>
       <span class="chip-label">${GEM_LABEL[c]}</span><span class="chip-count">${G.bank[c]}</span>
@@ -418,7 +437,7 @@ function renderPending() {
   chipsEl.innerHTML = G.pending
     .map((c, i) => `<button class="pending-chip gem-${c}" data-remove="${i}">${GEM_LABEL[c]} ✕</button>`)
     .join('');
-  document.getElementById('confirmTakeBtn').disabled = G.pending.length === 0 || G.gameOver || !!G.discardState;
+  document.getElementById('confirmTakeBtn').disabled = G.pending.length === 0 || G.gameOver || !!G.discardState || !canAct();
   document.getElementById('cancelTakeBtn').disabled = G.pending.length === 0;
 }
 
@@ -427,25 +446,27 @@ function renderPlayers() {
   el.innerHTML = G.players
     .map((p, i) => {
       const isCurrent = i === G.currentIndex && !G.gameOver;
+      const canActNow = isCurrent && canAct();
       const tokensHtml = GEMS.concat(['gold'])
         .map((c) => (p.tokens[c] > 0 ? gemDot(c, p.tokens[c]) : ''))
         .join('');
       const bonusHtml = GEMS.map((c) => (p.bonuses[c] > 0 ? gemDot(c, p.bonuses[c]) : '')).join('');
       const reservedHtml = p.reserved
         .map((card, idx) => {
-          const afford = isCurrent ? affordability(p, card.cost).ok : false;
+          const afford = canActNow ? affordability(p, card.cost).ok : false;
           return renderCardTile(card, {
-            buyable: isCurrent,
+            buyable: canActNow,
             reservable: false,
-            affordable: isCurrent && afford && G.pending.length === 0 && !G.discardState && !G.nobleChoice,
+            affordable: canActNow && afford && G.pending.length === 0 && !G.discardState && !G.nobleChoice,
             buyAct: `buyReserved:${idx}`,
           });
         })
         .join('');
+      const netTag = window.NET && NET.mode === 'online' && NET.seat === i ? ' <span class="you-tag">나</span>' : '';
       const noblesHtml = p.nobles.map(() => `<span class="noble-mini">★</span>`).join('');
       return `
         <div class="player-panel ${isCurrent ? 'active' : ''}">
-          <h3>${p.name} ${isCurrent ? '<span class="turn-tag">현재 턴</span>' : ''}</h3>
+          <h3>${p.name}${netTag} ${isCurrent ? '<span class="turn-tag">현재 턴</span>' : ''}</h3>
           <div class="player-points">점수: ${p.points}점 ${noblesHtml}</div>
           <div class="player-row"><span class="row-label">보유 토큰</span>${tokensHtml || '<em>없음</em>'}</div>
           <div class="player-row"><span class="row-label">카드 보너스</span>${bonusHtml || '<em>없음</em>'}</div>
@@ -492,9 +513,18 @@ function renderModal() {
   }
 }
 
+// 새 게임 버튼: 로컬 모드면 즉시 재시작, 온라인 모드면 방장만 재대결을 요청한다.
+function onNewGameClick() {
+  if (window.NET && NET.mode === 'online' && typeof NET.requestNewGame === 'function') {
+    NET.requestNewGame();
+  } else {
+    newGame();
+  }
+}
+
 // ============ 이벤트 바인딩 ============
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('newGameBtn').addEventListener('click', newGame);
+  document.getElementById('newGameBtn').addEventListener('click', onNewGameClick);
   document.getElementById('confirmTakeBtn').addEventListener('click', confirmTake);
   document.getElementById('cancelTakeBtn').addEventListener('click', cancelTake);
 

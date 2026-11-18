@@ -323,6 +323,18 @@ const kslot = k => k.split(':')[0], kr = k => +k.split(':')[1];
 const starOf = k => S.items[k] ? S.items[k].star : 0;
 const kindPow = k => Math.round((ITEM[kslot(k)].tbl ? ITEM[kslot(k)].tbl[kr(k)] : ITEM[kslot(k)].base * RARITY[kr(k)].mul) * (1 + STARBONUS*starOf(k)));
 const kindName = k => ITEM[kslot(k)].names[kr(k)];
+// 최대 성급(★5)이 된 장비는 같은 장비가 5개 모일 때마다 다음 등급 장비 1개로 합성 (레전더리는 💎30)
+const MERGEGEM = 30;
+function mergeMax(){
+  let n = 0, again = true;
+  while (again) { again = false;
+    for (const k of Object.keys(S.items)) { const it = S.items[k];
+      if (it.star >= STARMAX && it.n >= STARUP) { it.n -= STARUP; n++; again = true;
+        if (kr(k) >= 4) S.gem += MERGEGEM;
+        else { const nk = kslot(k) + ':' + (kr(k)+1); (S.items[nk] = S.items[nk] || {n:0, star:0}).n++; } } } }
+  if (n) say(`🔁 최대 장비 ${n}회 합성`);
+  return n;
+}
 // gacha
 function roll(minR){
   let r = Math.random()*100, i = 0;
@@ -350,7 +362,7 @@ function pull(n){
   if (S.gem < cost) return;
   S.gem -= cost; S.lastPull = [];
   for (let i = 0; i < n; i++) S.lastPull.push(pullOne(n === 10 && i === 9 ? 1 : 0));
-  autoAll();
+  mergeMax(); autoAll();
   renderTab();
 }
 const statTxt = k => PCT[kslot(k)] ? `${PCT[kslot(k)]}${kindPow(k)}%` : `${GEAR.find(g=>g.k===kslot(k)).stat} +${fmt(kindPow(k))}`;
@@ -535,9 +547,9 @@ function renderTab(){
       h += `<div class="row c"><div>${g.e} ${g.name} <b>+${S.gear[g.k]}</b><small>${det ? g.stat + ' +' + g.per + '/강 · ' : ''}성공 ${Math.round(gearRate(g.k)*100)}%</small></div>
         <span><button data-g="${g.k}" ${S.meso<c?'disabled':''}>💰${fmt(c)}</button> <button data-g10="${g.k}" ${S.meso<c?'disabled':''}>×10</button></span></div>`;
     });
-    h += `<hr><b>보유 장비 ${keys.length}종</b> <small>같은 장비 ${STARUP}개 → 1성 (최대 ${STARMAX}성, 성당 +${STARBONUS*100}%)</small>`;
+    h += `<hr><b>보유 장비 ${keys.length}종</b> <small>같은 장비 ${STARUP}개 → 1성 (최대 ${STARMAX}성, 성당 +${STARBONUS*100}%) · ★${STARMAX}는 ${STARUP}개마다 다음 등급으로 합성</small>`;
     keys.forEach(k => { const it = S.items[k], eq = S.equip[kslot(k)] === k, up = it.n >= STARUP && it.star < STARMAX;
-      h += `<div class="row c"><div>${GEAR.find(g=>g.k===kslot(k)).e} <span style="color:${RARITY[kr(k)].c};font-weight:700">${kindName(k)}${starOf(k) ? '★' + starOf(k) : ''}</span> <small>${statTxt(k).replace(/^[^+-]*/, '')} · ${it.star < STARMAX ? it.n + '/' + STARUP : 'MAX'}${eq ? ' · 착용' : ''}</small></div>
+      h += `<div class="row c"><div>${GEAR.find(g=>g.k===kslot(k)).e} <span style="color:${RARITY[kr(k)].c};font-weight:700">${kindName(k)}${starOf(k) ? '★' + starOf(k) : ''}</span> <small>${statTxt(k).replace(/^[^+-]*/, '')} · ${it.star < STARMAX ? it.n + '/' + STARUP : 'MAX ' + it.n + '/' + STARUP + (kr(k) < 4 ? ' → ' + ITEM[kslot(k)].names[kr(k)+1] : ' → 💎' + MERGEGEM)}${eq ? ' · 착용' : ''}</small></div>
         <span><button data-star="${k}" ${up?'':'disabled'}>승급</button>${S.ui.auto ? '' : ` <button data-eq="${k}" ${eq?'disabled':''}>장착</button>`}</span></div>`; });
   } else if (tab === 'relic') {
     const det = S.ui.detail, ks = Object.keys(RELICS), n = engSlots();
@@ -612,13 +624,13 @@ function renderTab(){
     if (n) say(`×${n} 강화: 성공 ${ok}회`); renderTab(); });
   el.querySelectorAll('[data-starall]').forEach(b => b.onclick = () => { let n = 0;
     Object.values(S.items).forEach(it => { while (it.n >= STARUP && it.star < STARMAX) { it.n -= STARUP; it.star++; n++; } });
-    if (n) say(`전체 승급 ${n}회`); autoAll(); renderTab(); });
+    if (n) say(`전체 승급 ${n}회`); mergeMax(); autoAll(); renderTab(); });
   el.querySelectorAll('[data-all]').forEach(b => b.onclick = () => { const c = colCfg(b.dataset.all); let n = 0;
     Object.values(c.own).forEach(o => { while (o.sh >= o.lv && o.lv < c.max) { o.sh -= o.lv; o.lv++; n++; } });
     if (n) say(`전체 강화 ${n}회`); autoAll(); renderTab(); });
   el.querySelectorAll('[data-ui]').forEach(b => b.onclick = () => { S.ui[b.dataset.ui] = !S.ui[b.dataset.ui]; autoAll(); renderTab(); });
   el.querySelectorAll('[data-star]').forEach(b => b.onclick = () => { const it = S.items[b.dataset.star];
-    if (it.n >= STARUP && it.star < STARMAX) { it.n -= STARUP; it.star++; say('승급! ' + it.star + '성'); autoAll(); renderTab(); } });
+    if (it.n >= STARUP && it.star < STARMAX) { it.n -= STARUP; it.star++; say('승급! ' + it.star + '성'); mergeMax(); autoAll(); renderTab(); } });
   if ($('p1')) $('p1').onclick = () => pull(1);
   if ($('p10')) $('p10').onclick = () => pull(10);
   el.querySelectorAll('[data-job]').forEach(b => b.onclick = () => {
@@ -659,7 +671,7 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
 $('save').onclick = () => { save(); say('저장됨'); };
 $('reset').onclick = () => { if (confirm('정말 초기화?')) { localStorage.removeItem('mapleIdle'); S = fresh(); respawnPlayer(); spawn(); renderMaps(); renderTab(); } };
 
-autoAll(); offline(); respawnPlayer(); spawn(); renderMaps(); renderTab();
+mergeMax(); autoAll(); offline(); respawnPlayer(); spawn(); renderMaps(); renderTab();
 setInterval(tick, 100);
 setInterval(render, 100);
 setInterval(renderTab, 1000);

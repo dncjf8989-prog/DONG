@@ -561,6 +561,30 @@ function resultHtml(list){
   const cnt = RARITY.map((_, i) => list.filter(x => x.r === i).length), fresh = list.filter(x => x.isNew);
   return `<small>결과 ${list.length}회: ` + RARITY.map((r, i) => cnt[i] ? `<span style="color:${r.c}">${r.n} ${cnt[i]}</span>` : '').filter(Boolean).join(' · ') + (fresh.length ? `<br>NEW ${fresh.length}: ${fresh.slice(0, 30).map(x => x.txt).join(', ')}${fresh.length > 30 ? ' …' : ''}` : '') + '</small>';
 }
+// 뽑기 통합: 장비 / 펫 / 동료를 같은 화면·같은 방식으로
+const GACHA = {
+  gear:{name:'장비', cost:[PULL1, PULL10, PULL100, PULL1000], pull:n => pull(n), pity:() => `${S.pity}/${PITY_L}`, epic:() => `${S.pity10}/${PITY_E}`, pulls:() => S.pulls,
+    last:() => S.lastPull.map(x => ({r:kr(x.key), txt:GEAR.find(g=>g.k===kslot(x.key)).e + kindName(x.key) + (x.eq ? '★' : ''), isNew:x.isNew})),
+    rates:() => RARITY.map(r => `<td style="color:${r.c}"><b>${r.n}</b><br>${r.rate}%</td>`).join('')},
+  pet:{name:'펫', cost:[PET1, PET10, PET100, PET1000], pull:n => eggs(n), pity:() => `${S.ppity}/${PITY_PM}`, pulls:() => S.ppulls,
+    last:() => S.lastEgg.map(x => ({r:PETS[x.id].r, txt:PETS[x.id].e + PETS[x.id].n, isNew:x.isNew})), defs:PETS},
+  mate:{name:'동료', cost:[MATE1, MATE10, MATE100, MATE1000], pull:n => recruit(n), pity:() => `${S.mpity}/${PITY_PM}`, pulls:() => S.mpulls,
+    last:() => S.lastMate.map(x => ({r:MATES[x.id].r, txt:MATES[x.id].e + MATES[x.id].n, isNew:x.isNew})), defs:MATES},
+};
+function gachaHtml(){
+  const k = S.ui.gtab || 'gear', g = GACHA[k], det = S.ui.detail, N = [1, 10, 100, 1000];
+  let h = `<div class="row"><span>${['gear','pet','mate'].map(x => `<button data-gk="${x}" class="${x===k?'on':''}">${GACHA[x].name}</button>`).join(' ')}</span><div>💎 ${S.gem}</div></div>`;
+  h += `<div class="row"><div><b>${g.name} 뽑기</b><small>천장 ${g.pity()}${g.epic ? ' · 에픽↑ ' + g.epic() : ''} · 총 ${g.pulls()}회</small></div><button data-ui="detail">${det?'간단히':'자세히'}</button></div>`;
+  h += '<div class="row">' + N.map((n, i) => `<button data-pull="${k}:${n}" ${S.gem < g.cost[i] ? 'disabled' : ''}>${n}회 💎${g.cost[i]}</button>`).join(' ') + '</div>';
+  h += '<small>10회마다 레어↑ 1개 보장</small>';
+  if (det) {
+    const cells = g.defs ? RARITY.map((r, i) => { const n = Object.values(g.defs).filter(d => d.r === i).length; return `<td style="color:${r.c}"><b>${r.n}</b><br>${r.rate}%<br><small>${(r.rate/n).toFixed(1)}%</small></td>`; }).join('') : g.rates();
+    h += '<table class="rates"><tr>' + cells + '</tr></table>';
+  }
+  h += resultHtml(g.last());
+  h += `<hr><small>💎는 스테이지 첫 클리어·퀘스트·광산 등으로 얻습니다.</small>`;
+  return h;
+}
 function colHtml(t){
   const c = colCfg(t), ids = Object.keys(c.defs).sort((a,b)=>c.defs[b].r-c.defs[a].r), det = S.ui.detail;
   const canAny = Object.keys(c.own).some(id => c.own[id].sh >= c.own[id].lv && c.own[id].lv < c.max);
@@ -569,10 +593,7 @@ function colHtml(t){
   for (let i = 0; i < c.n; i++) { const id = c.slots[i];
     h += `<div class="row c"><div>${id ? c.defs[id].e + ' <b style="color:'+RARITY[c.defs[id].r].c+'">' + c.defs[id].n + '</b> Lv.' + c.lv(id) + (det ? '<small>' + c.sub(id) + ' · ' + c.txt(id) + '</small>' : '') : '<small>빈 칸</small>'}</div>${id && !S.ui.auto ? `<button data-${c.k.un}="${i}">해제</button>` : ''}</div>`; }
   if (t === 'mate') { const D = dpsInfo(); h += `<small>파티 DPS ${fmt(D.mate)} (전체의 ${Math.round(D.mate/D.total*100)}%)</small>`; }
-  h += `<small>${det ? c.hold + ' 능력치의 ' + PETHOLD*100 + '%가 적용됩니다. ' : ''}도감 보너스 ${c.coll}</small><hr>`;
-  h += `<div class="row"><div><b>${c.name}</b><small>천장 ${c.pity}/${PITY_PM} · 총 ${c.pulls}회</small></div><span><button id="${c.ids[0]}" ${S.gem<c.cost[0]?'disabled':''}>1회 💎${c.cost[0]}</button> <button id="${c.ids[1]}" ${S.gem<c.cost[1]?'disabled':''}>10회 💎${c.cost[1]}</button> <button id="${c.ids[2]}" ${S.gem<c.cost[2]?'disabled':''}>100회 💎${c.cost[2]}</button> <button id="${c.ids[3]}" ${S.gem<c.cost[3]?'disabled':''}>1000회 💎${c.cost[3]}</button></span></div>`;
-  if (det) h += '<table class="rates"><tr>' + RARITY.map((r,i)=>{ const n = ids.filter(id=>c.defs[id].r===i).length; return `<td style="color:${r.c}"><b>${r.n}</b><br>${r.rate}%<br><small>${(r.rate/n).toFixed(1)}%</small></td>`; }).join('') + '</tr></table>';
-  h += resultHtml(c.last.map(x => ({r:c.defs[x.id].r, txt:`${c.defs[x.id].e}${c.defs[x.id].n}`, isNew:x.isNew})));
+  h += `<small>${det ? c.hold + ' 능력치의 ' + PETHOLD*100 + '%가 적용됩니다. ' : ''}도감 보너스 ${c.coll}</small> <small>· 뽑기는 "뽑기" 탭에서</small>`;
   h += '<hr>';
   let missing = 0;
   ids.forEach(id => { const d = c.defs[id], o = c.own[id];
@@ -701,12 +722,7 @@ function renderTab(){
   } else if (tab === 'mate' || tab === 'pet') {
     h += colHtml(tab);
   } else if (tab === 'gacha') {
-    h += `<div class="row"><div><b>장비 뽑기</b><small>천장: ${PITY_E}회 안에 에픽↑ 보장 · ${PITY_L}회 레전더리 보장 (현재 ${S.pity10}/${PITY_E} · ${S.pity}/${PITY_L})</small></div><div>💎 ${S.gem}</div></div>`;
-    h += '<table class="rates"><tr>' + RARITY.map(r=>`<td style="color:${r.c}"><b>${r.n}</b><br>${r.rate}%</td>`).join('') + '</tr></table>';
-    h += `<div class="row"><button id="p1" ${S.gem<PULL1?'disabled':''}>1회 💎${PULL1}</button><button id="p10" ${S.gem<PULL10?'disabled':''}>10회 💎${PULL10}</button><button id="p100" ${S.gem<PULL100?'disabled':''}>100회 💎${PULL100}</button><button id="p1000" ${S.gem<PULL1000?'disabled':''}>1000회 💎${PULL1000}</button></div><small>10회마다 레어↑ 1개 보장</small>`;
-    h += `<small>💎는 스테이지 첫 클리어·퀘스트·광산 등으로 얻습니다. 총 ${S.pulls}회 뽑음.</small>`;
-    if (S.lastPull.length > 10) h += '<hr>' + resultHtml(S.lastPull.map(x => ({r:kr(x.key), txt:kindName(x.key), isNew:x.isNew})));
-    else if (S.lastPull.length) h += '<hr>' + S.lastPull.map(x => `<div class="row">${GEAR.find(g=>g.k===kslot(x.key)).e} ${itemHtml(x.key)}${x.isNew?' <b>NEW</b>':''}${x.eq?' <b>★장착</b>':''}</div>`).join('');
+    h += gachaHtml();
   }
   el.innerHTML = h;
   el.querySelectorAll('[data-s10]').forEach(b => b.onclick = () => { const s = STATS.find(x=>x.k===b.dataset.s10);
@@ -748,6 +764,8 @@ function renderTab(){
     if (n) say(`유물 전체 강화 ${n}회`); autoAll(); renderTab(); });
   el.querySelectorAll('[data-re]').forEach(b => b.onclick = () => { const n = engSlots(); let sl = S.eng.slice(0, n).indexOf(null); if (sl < 0) sl = 0; if (n) S.eng[sl] = b.dataset.re; renderTab(); });
   el.querySelectorAll('[data-ru]').forEach(b => b.onclick = () => { S.eng[b.dataset.ru] = null; renderTab(); });
+  el.querySelectorAll('[data-gk]').forEach(b => b.onclick = () => { S.ui.gtab = b.dataset.gk; renderTab(); });
+  el.querySelectorAll('[data-pull]').forEach(b => b.onclick = () => { const [k, n] = b.dataset.pull.split(':'); GACHA[k].pull(+n); });
   el.querySelectorAll('[data-g10]').forEach(b => b.onclick = () => { const k = b.dataset.g10; let ok = 0, n = 0; chkDaily();
     for (let i = 0; i < 10; i++) { const c = gearCost(k); if (S.meso < c) break; S.meso -= c; n++; S.daily.enh++; S.week.enh++; if (Math.random() < gearRate(k)) { S.gear[k]++; ok++; } }
     if (n) say(`×${n} 강화: 성공 ${ok}회`); renderTab(); });
@@ -760,10 +778,6 @@ function renderTab(){
   el.querySelectorAll('[data-ui]').forEach(b => b.onclick = () => { S.ui[b.dataset.ui] = !S.ui[b.dataset.ui]; autoAll(); renderTab(); });
   el.querySelectorAll('[data-star]').forEach(b => b.onclick = () => { const it = S.items[b.dataset.star];
     if (it.n >= STARUP && it.star < STARMAX) { it.n -= STARUP; it.star++; say('승급! ' + it.star + '성'); mergeMax(); autoAll(); renderTab(); } });
-  if ($('p1')) $('p1').onclick = () => pull(1);
-  if ($('p10')) $('p10').onclick = () => pull(10);
-  if ($('p100')) $('p100').onclick = () => pull(100);
-  if ($('p1000')) $('p1000').onclick = () => pull(1000);
   el.querySelectorAll('[data-job]').forEach(b => b.onclick = () => {
     if (S.lv < JOB_LV[S.job.length]) return;
     S.job.push(b.dataset.job); skCd = 3; php = P().hp; say('전직 완료!'); renderTab(); });
@@ -772,16 +786,8 @@ function renderTab(){
     if (o.sh >= o.lv && o.lv < PETMAX) { o.sh -= o.lv; o.lv++; autoAll(); renderTab(); } });
   el.querySelectorAll('[data-pe]').forEach(b => b.onclick = () => { const id = b.dataset.pe;
     let slot = S.petEq.slice(0, PETSLOT).indexOf(null); if (slot < 0) slot = 0; S.petEq[slot] = id; renderTab(); });
-  if ($('e1')) $('e1').onclick = () => eggs(1);
-  if ($('e10')) $('e10').onclick = () => eggs(10);
-  if ($('e100')) $('e100').onclick = () => eggs(100);
-  if ($('e1000')) $('e1000').onclick = () => eggs(1000);
   el.querySelectorAll('[data-ml]').forEach(b => b.onclick = () => { const o = S.mates[b.dataset.ml];
     if (o.sh >= o.lv && o.lv < MATEMAX) { o.sh -= o.lv; o.lv++; autoAll(); renderTab(); } });
-  if ($('m1')) $('m1').onclick = () => recruit(1);
-  if ($('m10')) $('m10').onclick = () => recruit(10);
-  if ($('m100')) $('m100').onclick = () => recruit(100);
-  if ($('m1000')) $('m1000').onclick = () => recruit(1000);
   el.querySelectorAll('[data-mp]').forEach(b => b.onclick = () => { let sl = S.party.indexOf(null); if (sl < 0) sl = 0; S.party[sl] = b.dataset.mp; renderTab(); });
   el.querySelectorAll('[data-mu]').forEach(b => b.onclick = () => { S.party[b.dataset.mu] = null; renderTab(); });
 }

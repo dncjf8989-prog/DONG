@@ -664,6 +664,28 @@ function renderTab(){
     ks.sort((a,b)=>relicLv(b)-relicLv(a)).forEach(k => { const r = RELICS[k], lv = relicLv(k), c = relicCost(k), eng = S.eng.includes(k);
       h += `<div class="row c"><div>${lv ? r.e : '❔'} <b style="${lv?'':'opacity:.5'}">${r.n}</b> ${lv ? 'Lv.' + lv + '/' + RELICMAX : ''}<small>${lv ? relicTxt(k) + (eng ? ' ★각인' : '') : r.t + ' · 미해방'}</small>${det ? `<small>레벨당 ${r.pct ? (r.per*100).toFixed(1).replace(/\.0$/,'') + '%' : r.per + '초'}</small>` : ''}</div>
         <span><button data-rl="${k}" ${lv >= RELICMAX || S.rs < c ? 'disabled' : ''}>${lv >= RELICMAX ? 'MAX' : (lv ? '강화' : '해방') + ' 💠' + c}</button>${!S.ui.auto && lv && !eng ? ` <button data-re="${k}">각인</button>` : ''}</span></div>`; });
+  } else if (tab === 'reward') {
+    chkDaily();
+    h += `<div class="row"><b>💎 보석 얻는 법</b><div>💎 ${S.gem}</div></div>`;
+    h += `<small>· 스테이지 첫 클리어 시 보스 💎 (스테이지가 높을수록 ↑, 반복 처치는 10% 확률로 1개)<br>· 몬스터 처치 시 0.3% 드롭 / 1000마리마다 🎁 보석 상자<br>· 보석 광산 · 메소 교환소 (반복) · 출석 · 일일/주간 퀘스트 · 업적<br>· 자리 비운 10분마다 💎1 (최대 8시간)</small><hr>`;
+    // 보석 광산
+    const pend = minePending(), mc = mineCost();
+    h += `<div class="row"><div><b>⛏️ 보석 광산 Lv.${S.mine.lv}/${MINEMAX}</b><small>시간당 💎${mineRate().toFixed(1)} · 쌓인 보석 💎${pend} (최대 ${(mineRate()*8).toFixed(0)})</small></div>
+      <span><button data-mine="claim" ${pend>=1?'':'disabled'}>수령 💎${pend}</button> <button data-mine="up" ${S.mine.lv>=MINEMAX||S.meso<mc?'disabled':''}>${S.mine.lv>=MINEMAX?'MAX':'확장 💰'+fmt(mc)}</button></span></div>`;
+    // 교환소
+    h += `<div class="row"><div><b>💱 메소 교환소</b><small>💎1 = 💰${fmt(exPrice())} · 오늘 ${S.ex.n}/${EXMAX}</small></div><button data-mine="ex" ${S.ex.n>=EXMAX||S.meso<exPrice()?'disabled':''}>교환</button></div>`;
+    h += `<small>🎁 다음 보석 상자까지 ${1000 - S.tk % 1000}마리</small><hr>`;
+    h += `<div class="row"><div><b>출석 보상</b><small>하루 한 번 💎20</small></div><button data-claim="login" ${S.daily.login?'disabled':''}>${S.daily.login?'완료':'받기 💎20'}</button></div>`;
+    h += '<hr><b>일일 퀘스트</b>';
+
+    DQ.forEach(q => { const c = Math.min(S.daily[q.id]||0, q.goal), done = c >= q.goal, got = S.daily.claim[q.id];
+      h += `<div class="row"><div>${q.name}<small>${c}/${q.goal}</small></div><button data-claim="q:${q.id}" ${done && !got ? '' : 'disabled'}>${got ? '완료' : '💎' + q.gem}</button></div>`; });
+    h += '<hr><b>주간 퀘스트</b> <small>(월요일 초기화)</small>';
+    WQ.forEach(q => { const c = Math.min(S.week[q.id]||0, q.goal), done = c >= q.goal, got = S.week.claim[q.id];
+      h += `<div class="row"><div>${q.name}<small>${fmt(c)}/${fmt(q.goal)}</small></div><button data-claim="w:${q.id}" ${done && !got ? '' : 'disabled'}>${got ? '완료' : '💎' + q.gem}</button></div>`; });
+    h += '<hr><b>업적</b>';
+    ACH.slice().sort((a,b)=>(S.ach[a.id]?1:0)-(S.ach[b.id]?1:0)).forEach(a => { const c = Math.min(a.cur(), a.goal), done = c >= a.goal, got = S.ach[a.id];
+      h += `<div class="row" style="${got?'opacity:.5':''}"><div>${a.name}<small>${fmt(c)}/${fmt(a.goal)}</small></div><button data-claim="a:${a.id}" ${done && !got ? '' : 'disabled'}>${got ? '완료' : '💎' + a.gem}</button></div>`; });
   } else if (tab === 'job') {
     const ns = jobNodes(), tier = ns.length, kids = jobKids();
     h += `<div class="row"><div><b>현재 직업: ${tier ? ns.map(n=>n.n).join(' → ') : '모험가'}</b>` +

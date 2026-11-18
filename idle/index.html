@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>메이플 키우기 (프로토타입)</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <div><b id="lv">Lv.1</b> <span id="job">모험가</span></div>
+    <div>💰 <span id="meso">0</span> · 💎 <span id="gem">0</span></div>
+  </header>
+
+  <section id="stage">
+    <div id="mapname"></div>
+    <div id="field">
+      <div id="player">🧙<div class="bar"><i id="phpbar"></i></div></div>
+      <div id="monster">👾<div class="bar"><i id="mhpbar"></i></div><small id="mname"></small></div>
+      <div id="floaters"></div>
+    </div>
+    <div class="bar big"><i id="expbar"></i><span id="exptext"></span></div>
+    <div id="stageinfo"></div>
+    <div id="maps"></div>
+  </section>
+
+  <nav>
+    <button data-tab="stats" class="on">능력치</button>
+    <button data-tab="gear">장비</button>
+    <button data-tab="rebirth">환생</button>
+  </nav>
+  <section id="tab"></section>
+  <footer><button id="save">저장</button> <button id="reset">초기화</button> <span id="msg"></span></footer>
+</div>
+<script src="game.js"></script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+:root{--bg:#fff7e6;--card:#fff;--ink:#3a2a14;--accent:#f08a24;--line:#e8d5b0}
+@media(prefers-color-scheme:dark){:root{--bg:#1d1a14;--card:#2a251c;--ink:#f3e6cc;--line:#4a4030}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,sans-serif}
+#app{max-width:520px;margin:0 auto;padding:12px}
+header{display:flex;justify-content:space-between;font-size:18px;margin-bottom:8px}
+section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px}
+#field{position:relative;height:130px;background:linear-gradient(#9ed8ff,#c9f0a8 70%,#8bc86a);border-radius:8px;overflow:hidden}
+#player,#monster{position:absolute;bottom:14px;font-size:44px;text-align:center}
+#player{left:18%}#monster{right:18%}
+#monster.hit{animation:hit .15s}
+@keyframes hit{50%{transform:translateX(6px)}}
+#monster small{display:block;font-size:11px;color:#222}
+.bar{height:6px;background:#0004;border-radius:4px;overflow:hidden;width:60px;margin:0 auto}
+.bar i{display:block;height:100%;background:#e44;width:100%}
+#phpbar{background:#3c3}
+.bar.big{width:100%;height:16px;position:relative;margin-top:8px}
+.bar.big i{background:#fc3;width:0}
+.bar.big span{position:absolute;inset:0;text-align:center;font-size:11px;line-height:16px;color:#000}
+#floaters .f{position:absolute;font-weight:700;color:#fff;text-shadow:0 0 3px #000;animation:up .8s forwards;pointer-events:none}
+.f.crit{color:#ff0;font-size:20px}
+@keyframes up{to{transform:translateY(-40px);opacity:0}}
+#stageinfo{margin:8px 0;font-size:13px}
+#maps{display:flex;gap:4px;flex-wrap:wrap}
+#maps button{font-size:12px}
+nav{display:flex;gap:6px;margin-bottom:8px}
+nav button{flex:1}nav .on{background:var(--accent);color:#fff}
+button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer}
+button:disabled{opacity:.4;cursor:default}
+.row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);gap:8px}
+.row small{opacity:.7;display:block}
+footer{font-size:12px;opacity:.8}

@@ -21,15 +21,15 @@ const GEAR = [
 ];
 const RARITY = [
   {n:'일반',     c:'#9aa0a6', rate:55, mul:1},
-  {n:'레어',     c:'#3b9cff', rate:28, mul:2},
-  {n:'에픽',     c:'#b05cff', rate:12, mul:4},
-  {n:'유니크',   c:'#ffb020', rate:4,  mul:8},
-  {n:'레전더리', c:'#2ecc71', rate:1,  mul:16},
+  {n:'레어',     c:'#3b9cff', rate:28, mul:2.5},
+  {n:'에픽',     c:'#b05cff', rate:12, mul:6},
+  {n:'유니크',   c:'#ffb020', rate:4,  mul:13},
+  {n:'레전더리', c:'#2ecc71', rate:1,  mul:30},
 ];
 const ITEM = {
-  weapon:{base:36,  names:['목검','강철 검','미스릴 대검','엑스칼리버','검은 마법사의 지팡이']},
-  hat:   {base:180, names:['털모자','철 투구','마법사 모자','용기사 투구','핑크빈 왕관']},
-  armor: {base:18,  names:['천 옷','가죽 갑옷','미스릴 갑옷','용린 갑옷','시간의 갑주']},
+  weapon:{base:70,  names:['목검','강철 검','미스릴 대검','엑스칼리버','검은 마법사의 지팡이']},
+  hat:   {base:350, names:['털모자','철 투구','마법사 모자','용기사 투구','핑크빈 왕관']},
+  armor: {base:35,  names:['천 옷','가죽 갑옷','미스릴 갑옷','용린 갑옷','시간의 갑주']},
   shoes: {base:2,   names:['고무 신발','가죽 부츠','바람의 신발','천둥 부츠','시공의 신발']},
 };
 // 동료: 가챠로 획득, 중복은 조각으로 성장 (dps 공격 / tank 받는 피해 감소 / heal HP 회복 / buff 공격력·경험치·메소)
@@ -260,10 +260,10 @@ function say(t){ $('msg').textContent = t; clearTimeout(say.t); say.t = setTimeo
 function save(){ S.last = Date.now(); try{ localStorage.setItem('mapleIdle', JSON.stringify(S)); }catch(e){} }
 
 // 장비 종류 = 부위:등급. 중복은 개수로 쌓이고, 5개마다 1성 승급
-const STARMAX = 5, STARUP = 5, STARBONUS = .3;
+const STARMAX = 5, STARUP = 5, STARBONUS = .5, SHOESPD = [2,4,8,14,22];
 const kslot = k => k.split(':')[0], kr = k => +k.split(':')[1];
 const starOf = k => S.items[k] ? S.items[k].star : 0;
-const kindPow = k => Math.round(ITEM[kslot(k)].base * RARITY[kr(k)].mul * (1 + STARBONUS*starOf(k)));
+const kindPow = k => Math.round((kslot(k) === 'shoes' ? SHOESPD[kr(k)] : ITEM[kslot(k)].base * RARITY[kr(k)].mul) * (1 + STARBONUS*starOf(k)));
 const kindName = k => ITEM[kslot(k)].names[kr(k)];
 // gacha
 function roll(minR){
@@ -295,7 +295,7 @@ function pull(n){
   renderTab();
 }
 const statTxt = k => kslot(k) === 'shoes' ? `공속 +${kindPow(k)}%` : `${GEAR.find(g=>g.k===kslot(k)).stat} +${fmt(kindPow(k))}`;
-const HOLD = .1, PETHOLD = .3;
+const HOLD = .35, PETHOLD = .3;
 function hold(){ const o = {weapon:0,hat:0,armor:0,shoes:0}; Object.keys(S.items).forEach(k => { if (S.equip[kslot(k)] !== k) o[kslot(k)] += kindPow(k)*HOLD; }); return o; }
 const holdTxt = H => `공격력 +${fmt(H.weapon)} · HP +${fmt(H.hat)} · 방어 +${fmt(H.armor)} · 공속 +${H.shoes.toFixed(1)}%`;
 const itemHtml = k => `<span style="color:${RARITY[kr(k)].c};font-weight:700">[${RARITY[kr(k)].n}] ${kindName(k)}${starOf(k) ? ' ' + '★'.repeat(starOf(k)) : ''}</span> <small>${statTxt(k)}</small>`;

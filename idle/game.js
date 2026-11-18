@@ -42,6 +42,14 @@ const MATES = {
   luna: {n:'루나',   e:'🎵', r:2, role:'음유시인', b:{atk:.25,exp:.25}},
   zeno: {n:'제노',   e:'⚙️', r:3, role:'기계공학자',cd:4,  m:9,   b:{meso:.20}},
   arca: {n:'아르카', e:'👑', r:4, role:'용사',     cd:2.5,m:14,  b:{atk:.30,red:.10}},
+  toby: {n:'토비',   e:'🥊', r:0, role:'격투가',   cd:2,  m:1.1},
+  gus:  {n:'거스',   e:'⛏️', r:0, role:'광부',     cd:4,  m:1.6, b:{meso:.15}},
+  rina: {n:'리나',   e:'🌿', r:1, role:'드루이드', cd:4,  m:2.5, b:{regen:.015,atk:.08}},
+  vik:  {n:'빅',     e:'🏴‍☠️', r:1, role:'해적',     cd:2,  m:2.2, b:{meso:.15}},
+  sage: {n:'세이지', e:'📚', r:2, role:'현자',     cd:3,  m:5,   b:{exp:.20}},
+  mina: {n:'미나',   e:'🔰', r:2, role:'성기사',   cd:3,  m:1.6, b:{red:.20,regen:.01}},
+  irene:{n:'아이린', e:'⚡', r:3, role:'마검사',   cd:2,  m:8,   b:{atk:.20}},
+  nero: {n:'네로',   e:'🌑', r:4, role:'암흑기사', cd:2.5,m:18,  b:{atk:.35,red:.12}},
 };
 const MATEBT = {red:'받는 피해 -',regen:'HP 회복/초 +',atk:'공격력 +',exp:'경험치 +',meso:'메소 +'};
 const MATEMAX = 20, PARTY = 3, MATE1 = 10, MATE10 = 90;
@@ -50,7 +58,7 @@ const mateMul = id => 1 + .2*(mateLv(id)-1);
 const mateOwned = () => Object.keys(S.mates).length;
 function mt(){
   const o = {atk:1,exp:1,meso:1,regen:0,red:0}, n = mateOwned();
-  o.atk += .08*n; o.meso += .10*n;   // 도감 보너스
+  o.atk += .05*n; o.meso += .08*n;   // 도감 보너스
   Object.keys(S.mates).forEach(id => { const b = MATES[id].b || {}, f = S.party.includes(id) ? 1 : PETHOLD;
     for (const k in b) { const v = b[k]*mateMul(id)*f; if (k === 'red') o.red += v; else if (k === 'regen') o.regen += v; else o[k] += v; } });
   o.red = Math.min(.5, o.red);
@@ -69,6 +77,14 @@ const PETS = {
   fox:    {n:'구미호',   e:'🦊', r:2, b:{meso:.25,exp:.1}},
   unicorn:{n:'유니콘',   e:'🦄', r:3, b:{hp:.3,exp:.25,spd:.05}},
   dragon: {n:'드래곤',   e:'🐲', r:4, b:{atk:.4,crit:.05,meso:.2}},
+  bunny:  {n:'토끼',     e:'🐰', r:0, b:{hp:.08}},
+  frog:   {n:'개구리',   e:'🐸', r:0, b:{crit:.02,atk:.03}},
+  penguin:{n:'펭귄',     e:'🐧', r:1, b:{hp:.15,spd:.03}},
+  panda:  {n:'판다',     e:'🐼', r:1, b:{exp:.15,hp:.10}},
+  tiger:  {n:'호랑이',   e:'🐯', r:2, b:{atk:.20,crit:.03}},
+  monkey: {n:'원숭이',   e:'🐵', r:2, b:{meso:.30,exp:.10}},
+  fairy:  {n:'요정',     e:'🧚', r:3, b:{exp:.35,meso:.20}},
+  phoenix:{n:'불사조',   e:'🦅', r:4, b:{atk:.40,hp:.30,crit:.05}},
 };
 const PETBT = {atk:'공격력',hp:'HP',meso:'메소',exp:'경험치',crit:'크리율',spd:'공속'};
 const PET1 = 10, PET10 = 90, PETMAX = 20, PETSLOT = 2;
@@ -79,7 +95,7 @@ const petOwned = () => Object.keys(S.pets).length;
 function pb(){
   const o = {atk:1,hp:1,meso:1,exp:1,crit:0,spd:1}, n = petOwned();
   // 도감 보너스: 보유 종류당 공격력 +3%, 경험치 +2%
-  o.atk += .08*n; o.exp += .06*n;
+  o.atk += .05*n; o.exp += .04*n;
   Object.keys(S.pets).forEach(id => {
     const f = S.petEq.includes(id) ? 1 : PETHOLD;   // 장착 100% / 보유만 30%
     for (const k in PETS[id].b) { const v = PETS[id].b[k]*petMul(id)*f; if (k === 'crit') o.crit += v; else o[k] += v; } });
@@ -379,8 +395,8 @@ const ACH = [];
 [[10,10],[30,20],[50,30],[80,50],[100,80],[150,120],[200,200]].forEach(([g,v]) => ACH.push({id:'lv'+g, name:`레벨 ${g} 달성`, goal:g, gem:v, cur:()=>S.lv}));
 [[10,20],[40,40],[80,100]].forEach(([g,v]) => ACH.push({id:'cl'+g, name:`스테이지 ${g}개 클리어`, goal:g, gem:v, cur:()=>sum(S.clear)}));
 [[1000,20],[10000,60],[100000,200]].forEach(([g,v]) => ACH.push({id:'tk'+g, name:`몬스터 ${fmt(g)}마리 처치`, goal:g, gem:v, cur:()=>S.tk}));
-[[4,30],[8,80]].forEach(([g,v]) => ACH.push({id:'pet'+g, name:`펫 ${g}종 수집`, goal:g, gem:v, cur:()=>Object.keys(S.pets).length}));
-[[4,30],[8,80]].forEach(([g,v]) => ACH.push({id:'mt'+g, name:`동료 ${g}명 수집`, goal:g, gem:v, cur:()=>Object.keys(S.mates).length}));
+[[4,30],[8,80],[16,200]].forEach(([g,v]) => ACH.push({id:'pet'+g, name:`펫 ${g}종 수집`, goal:g, gem:v, cur:()=>Object.keys(S.pets).length}));
+[[4,30],[8,80],[16,200]].forEach(([g,v]) => ACH.push({id:'mt'+g, name:`동료 ${g}명 수집`, goal:g, gem:v, cur:()=>Object.keys(S.mates).length}));
 [[1,10],[5,30],[15,80]].forEach(([g,v]) => ACH.push({id:'st'+g, name:`장비 승급 ${g}회`, goal:g, gem:v, cur:()=>Object.values(S.items).reduce((a,b)=>a+b.star,0)}));
 const claimable = () => { chkDaily(); let n = S.daily.login ? 0 : 1;
   DQ.forEach(q => { if (S.daily[q.id] >= q.goal && !S.daily.claim[q.id]) n++; });
@@ -473,7 +489,7 @@ function renderTab(){
     for (let i = 0; i < PARTY; i++) { const id = S.party[i];
       h += `<div class="row"><div>${id ? MATES[id].e + ' <b style="color:'+RARITY[MATES[id].r].c+'">' + MATES[id].n + ' Lv.' + mateLv(id) + '</b><small>' + MATES[id].role + ' · ' + mateTxt(id) + '</small>' : '<small>빈 칸</small>'}</div>${id ? `<button data-mu="${i}">해제</button>` : ''}</div>`; }
     { const D = dpsInfo(); h += `<div class="row"><div><b>파티 DPS ${fmt(D.mate)}</b><small>전체 DPS ${fmt(D.total)} 중 ${Math.round(D.mate/D.total*100)}%</small></div></div>`; }
-    h += `<small>보유효과: 파티에 넣지 않은 동료도 능력치의 ${PETHOLD*100}%가 적용됩니다.<br>도감 ${mateOwned()}/${Object.keys(MATES).length}명 → 공격력 +${mateOwned()*8}% · 메소 +${mateOwned()*10}%</small><hr>`;
+    h += `<small>보유효과: 파티에 넣지 않은 동료도 능력치의 ${PETHOLD*100}%가 적용됩니다.<br>도감 ${mateOwned()}/${Object.keys(MATES).length}명 → 공격력 +${mateOwned()*5}% · 메소 +${mateOwned()*8}%</small><hr>`;
     h += `<div class="row"><div><b>동료 소환</b><small>천장 ${S.mpity}/80 (레전더리 보장) · 총 ${S.mpulls}회</small></div></div>`;
     h += '<table class="rates"><tr>' + RARITY.map((r,i)=>{ const n = Object.values(MATES).filter(p=>p.r===i).length; return `<td style="color:${r.c}"><b>${r.n}</b><br>${r.rate}%<br><small>명당 ${(r.rate/n).toFixed(1)}%</small></td>`; }).join('') + '</tr></table>';
     h += `<div class="row"><button id="m1" ${S.gem<MATE1?'disabled':''}>1회 💎${MATE1}</button><button id="m10" ${S.gem<MATE10?'disabled':''}>10회 💎${MATE10} (레어↑ 1명 보장)</button></div>`;
@@ -488,7 +504,7 @@ function renderTab(){
     h += `<div class="row"><div><b>장착 중 (${PETSLOT}칸)</b></div><div>💎 ${S.gem}</div></div>`;
     for (let i = 0; i < PETSLOT; i++) { const id = S.petEq[i];
       h += `<div class="row"><div>${id ? PETS[id].e + ' <b style="color:'+RARITY[PETS[id].r].c+'">'+PETS[id].n+' Lv.'+petLv(id)+'</b><small>'+petTxt(id)+' · 2초마다 자동 공격</small>' : '<small>빈 칸</small>'}</div>${id ? `<button data-un="${i}">해제</button>` : ''}</div>`; }
-    h += `<small>보유효과: 장착하지 않은 펫도 능력치의 ${PETHOLD*100}%가 적용됩니다.<br>도감 ${petOwned()}/${Object.keys(PETS).length}종 → 공격력 +${petOwned()*8}% · 경험치 +${petOwned()*6}%</small>`;
+    h += `<small>보유효과: 장착하지 않은 펫도 능력치의 ${PETHOLD*100}%가 적용됩니다.<br>도감 ${petOwned()}/${Object.keys(PETS).length}종 → 공격력 +${petOwned()*5}% · 경험치 +${petOwned()*4}%</small>`;
     h += '<hr>';
     h += `<div class="row"><div><b>펫 알 뽑기</b><small>천장 ${S.ppity}/80 (레전더리 보장) · 총 ${S.ppulls}회</small></div></div>`;
     h += '<table class="rates"><tr>' + RARITY.map((r,i)=>{ const n = Object.values(PETS).filter(p=>p.r===i).length; return `<td style="color:${r.c}"><b>${r.n}</b><br>${r.rate}%<br><small>종당 ${(r.rate/n).toFixed(1)}%</small></td>`; }).join('') + '</tr></table>';

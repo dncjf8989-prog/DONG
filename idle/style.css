@@ -52,3 +52,5 @@ nav button{padding:6px 2px;font-size:13px}
 nav{flex-wrap:wrap}nav button{min-width:22%}
 
 .sg{display:grid;grid-template-columns:1fr 1fr;gap:2px 14px;font-size:13px}.sg div{display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding:2px 0}.sg span{opacity:.7}
+
+.row.c{padding:3px 0}.row.c small{display:inline;margin-left:6px}

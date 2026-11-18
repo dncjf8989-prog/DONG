@@ -32,6 +32,36 @@ const ITEM = {
   armor: {base:18,  names:['천 옷','가죽 갑옷','미스릴 갑옷','용린 갑옷','시간의 갑주']},
   shoes: {base:2,   names:['고무 신발','가죽 부츠','바람의 신발','천둥 부츠','시공의 신발']},
 };
+const JOB_LV = [10, 40, 80, 130];
+// m: 배수(atk,hp,def,spd,meso,skill) / 가산(crit,cdmg,regen)
+const TREE = {
+  warrior:{n:'전사', e:'⚔️', m:{atk:1.1,hp:1.4,def:1.3}, sk:['파워 스트라이크',6,4,1], kids:{
+    fighter:{n:'파이터', m:{atk:1.25,spd:1.05}, kids:{crusader:{n:'크루세이더', m:{atk:1.3,skill:1.3}, kids:{hero:{n:'히어로', m:{atk:1.7,crit:.1,skill:1.5}}}}}},
+    paladin:{n:'팔라딘', m:{hp:1.4,def:1.5}, kids:{knight:{n:'나이트', m:{hp:1.4,def:1.4,regen:.01}, kids:{darkknight:{n:'다크나이트', m:{atk:1.4,hp:1.5,def:1.5,regen:.01}}}}}},
+  }},
+  mage:{n:'마법사', e:'🔮', m:{atk:1.35,hp:.9}, sk:['에너지 볼트',5,4.5,1], kids:{
+    firemage:{n:'불독', m:{atk:1.4,skill:1.3}, kids:{firewizard:{n:'불독 마도사', m:{atk:1.3,skill:1.5}, kids:{archmage:{n:'아크메이지', m:{atk:1.8,skill:1.8}}}}}},
+    cleric:{n:'클레릭', m:{hp:1.3,regen:.02}, kids:{priest:{n:'프리스트', m:{atk:1.2,hp:1.3,regen:.02}, kids:{bishop:{n:'비숍', m:{atk:1.5,hp:1.5,regen:.03,skill:1.4}}}}}},
+  }},
+  archer:{n:'궁수', e:'🏹', m:{atk:1.15,spd:1.1,crit:.1}, sk:['애로우 레인',6,2,3], kids:{
+    hunter:{n:'헌터', m:{atk:1.25,spd:1.1}, kids:{ranger:{n:'레인저', m:{atk:1.3,spd:1.1,skill:1.3}, kids:{bowmaster:{n:'보우마스터', m:{atk:1.6,spd:1.2,crit:.1}}}}}},
+    crossbow:{n:'사수', m:{atk:1.2,crit:.1,cdmg:.3}, kids:{sniper:{n:'저격수', m:{crit:.1,cdmg:.4}, kids:{marksman:{n:'신궁', m:{atk:1.5,crit:.1,cdmg:.6}}}}}},
+  }},
+  thief:{n:'도적', e:'🗡️', m:{atk:1.15,spd:1.15,cdmg:.4}, sk:['럭키 세븐',5,3,2], kids:{
+    assassin:{n:'어쌔신', m:{atk:1.2,cdmg:.5}, kids:{hermit:{n:'허밋', m:{atk:1.3,cdmg:.6,skill:1.3}, kids:{nightlord:{n:'나이트로드', m:{atk:1.6,cdmg:.8,skill:1.5}}}}}},
+    bandit:{n:'시프', m:{spd:1.2,meso:1.3}, kids:{chiefbandit:{n:'시프마스터', m:{spd:1.15,meso:1.5,atk:1.2}, kids:{shadower:{n:'섀도어', m:{atk:1.5,spd:1.2,meso:2}}}}}},
+  }},
+};
+const ADD = {crit:1,cdmg:1,regen:1};
+const MODTXT = {atk:'공격력',hp:'HP',def:'방어',spd:'공속',meso:'메소',skill:'스킬 데미지',crit:'크리율',cdmg:'크뎀',regen:'HP 회복/초'};
+function jobNodes(){ const out = []; let kids = TREE; for (const id of S.job) { const n = kids[id]; if (!n) break; out.push(n); kids = n.kids || {}; } return out; }
+function jobKids(){ const ns = jobNodes(); return ns.length ? (ns[ns.length-1].kids || {}) : TREE; }
+function jm(){
+  const o = {atk:1,hp:1,def:1,spd:1,meso:1,skill:1,crit:0,cdmg:0,regen:0};
+  jobNodes().forEach(n => { for (const k in n.m) { if (ADD[k]) o[k] += n.m[k]; else o[k] *= n.m[k]; } });
+  return o;
+}
+const modTxt = m => Object.keys(m).map(k => ADD[k] ? `${MODTXT[k]} +${Math.round(m[k]*100)}%` : `${MODTXT[k]} ×${m[k]}`).join(' · ');
 const PULL1 = 5, PULL10 = 45, STAGES = 10;
 const STATS = [
   {k:'atk',  name:'공격력 단련', desc:'공격력 +5',  base:50,  g:1.18},
@@ -42,23 +72,24 @@ const STATS = [
 ];
 
 const fresh = () => ({lv:1,exp:0,meso:0,gem:0,map:0,kills:0,rebirth:0,stat:{atk:0,hp:0,crit:0,cdmg:0,meso:0},
-  gear:{weapon:0,hat:0,armor:0,shoes:0},best:0,last:Date.now(),stage:1,clear:{},inv:[],equip:{weapon:null,hat:null,armor:null,shoes:null},pity:0,pity10:0,pulls:0,nid:1,lastPull:[]});
+  gear:{weapon:0,hat:0,armor:0,shoes:0},best:0,last:Date.now(),stage:1,clear:{},job:[],inv:[],equip:{weapon:null,hat:null,armor:null,shoes:null},pity:0,pity10:0,pulls:0,nid:1,lastPull:[]});
 let S = fresh();
 try { const raw = localStorage.getItem('mapleIdle'); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch(e){}
 
 const rebMul = () => 1 + S.rebirth * 0.5;
 const need = lv => Math.floor(20 * Math.pow(lv, 2.1) * 1.05);
 const P = () => {
-  const E = S.equip, ep = k => E[k] ? E[k].pow : 0;
-  const atk = (10 + S.lv*3 + S.stat.atk*5 + S.gear.weapon*12 + ep('weapon')) * rebMul();
+  const J = jm(), E = S.equip, ep = k => E[k] ? E[k].pow : 0;
+  const atk = (10 + S.lv*3 + S.stat.atk*5 + S.gear.weapon*12 + ep('weapon')) * rebMul() * J.atk;
   return {
     atk,
-    hp: (100 + S.lv*20 + S.stat.hp*40 + S.gear.hat*60 + ep('hat')) * rebMul(),
-    def: S.gear.armor*6 + S.lv + ep('armor'),
-    crit: Math.min(.8, .05 + S.stat.crit*.005),
-    cdmg: 1.5 + S.stat.cdmg*.02,
-    spd: 1 + (S.gear.shoes*2 + ep('shoes'))/100,
-    meso: 1 + S.stat.meso*.03,
+    hp: (100 + S.lv*20 + S.stat.hp*40 + S.gear.hat*60 + ep('hat')) * rebMul() * J.hp,
+    def: (S.gear.armor*6 + S.lv + ep('armor')) * J.def,
+    crit: Math.min(.8, .05 + S.stat.crit*.005 + J.crit),
+    cdmg: 1.5 + S.stat.cdmg*.02 + J.cdmg,
+    spd: (1 + (S.gear.shoes*2 + ep('shoes'))/100) * J.spd,
+    meso: (1 + S.stat.meso*.03) * J.meso,
+    skill: J.skill, regen: J.regen,
   };
 };
 const upCost = (s) => Math.floor(s.base * Math.pow(s.g, S.stat[s.k]));
@@ -66,7 +97,7 @@ const gearCost = k => Math.floor(100 * Math.pow(1.35, S.gear[k]));
 const gearRate = k => Math.max(.15, 1 - S.gear[k]*.02);
 
 // combat state
-let mhp, mmax, php, isBoss = false, bossT = 0, atkCd = 0, monCd = 0;
+let mhp, mmax, php, isBoss = false, bossT = 0, atkCd = 0, monCd = 0, skCd = 3;
 const mon = () => {
   const m = MAPS[S.map], boss = isBoss, sm = Math.pow(1.35, S.stage-1), rm = Math.pow(1.25, S.stage-1);
   return {hp: m.hp * sm * (boss ? 12 : 1), exp: m.exp * rm * (boss ? 10 : 1), meso: m.meso * rm * (boss ? 10 : 1)};
@@ -106,6 +137,17 @@ function tick(){
     $('monster').classList.add('hit'); setTimeout(()=>$('monster').classList.remove('hit'), 150);
     if (mhp <= 0) kill();
   }
+  const root = jobNodes()[0];
+  if (root) {
+    skCd -= DT;
+    if (skCd <= 0) {
+      const [nm, cd, mul, hits] = root.sk; skCd = cd;
+      const d = p.atk * mul * hits * p.skill;
+      mhp -= d; float(nm + ' ' + fmt(d), true, 'm');
+      if (mhp <= 0) kill();
+    }
+  }
+  if (p.regen) php = Math.min(p.hp, php + p.hp * p.regen * DT);
   monCd -= DT;
   if (monCd <= 0) {
     monCd = 1;
@@ -200,6 +242,18 @@ function renderTab(){
     h += `<hr><div class="row"><b>보관함 (${inv.length})</b><button id="sellall" ${inv.length?'':'disabled'}>전부 판매</button></div>`;
     inv.slice(0, 30).forEach(it => { h += `<div class="row"><div>${GEAR.find(g=>g.k===it.slot).e} ${itemHtml(it)}</div><span><button data-eq="${it.id}">장착</button> <button data-sell="${it.id}">판매</button></span></div>`; });
     if (inv.length > 30) h += `<small>…외 ${inv.length-30}개</small>`;
+  } else if (tab === 'job') {
+    const ns = jobNodes(), tier = ns.length, kids = jobKids();
+    h += `<div class="row"><div><b>현재 직업: ${tier ? ns.map(n=>n.n).join(' → ') : '모험가'}</b>` +
+      (tier ? `<small>${ns[0].e} 스킬: ${ns[0].sk[0]} (${ns[0].sk[1]}초마다 ×${ns[0].sk[2]*ns[0].sk[3]*jm().skill > 0 ? (ns[0].sk[2]*ns[0].sk[3]*jm().skill).toFixed(1) : ''} 데미지, 자동 발동)</small>` : '<small>Lv.10에 1차 전직할 수 있습니다.</small>') + '</div></div>';
+    if (tier >= 4) h += '<small>최종 전직 완료!</small>';
+    else if (S.lv < JOB_LV[tier]) h += `<small>${tier+1}차 전직: Lv.${JOB_LV[tier]} 필요 (현재 Lv.${S.lv})</small>`;
+    else {
+      h += `<b>${tier+1}차 전직 선택</b>`;
+      Object.keys(kids).forEach(id => { const n = kids[id];
+        h += `<div class="row"><div>${n.e||''} <b>${n.n}</b><small>${modTxt(n.m)}${n.sk ? '<br>스킬: ' + n.sk[0] : ''}</small></div><button data-job="${id}">전직</button></div>`; });
+    }
+    h += '<hr><small>환생하면 전직이 초기화되어 다시 선택할 수 있습니다.</small>';
   } else if (tab === 'gacha') {
     h += `<div class="row"><div><b>장비 뽑기</b><small>천장: 10회 안에 에픽↑ 보장 · 100회 레전더리 보장 (현재 ${S.pity10}/10 · ${S.pity}/100)</small></div><div>💎 ${S.gem}</div></div>`;
     h += '<table class="rates"><tr>' + RARITY.map(r=>`<td style="color:${r.c}"><b>${r.n}</b><br>${r.rate}%</td>`).join('') + '</tr></table>';
@@ -231,6 +285,9 @@ function renderTab(){
   if ($('sellall')) $('sellall').onclick = () => { S.inv.forEach(it => S.meso += it.pow*30*(it.r+1)); S.inv = []; say('보관함을 모두 판매'); renderTab(); };
   if ($('p1')) $('p1').onclick = () => pull(1);
   if ($('p10')) $('p10').onclick = () => pull(10);
+  el.querySelectorAll('[data-job]').forEach(b => b.onclick = () => {
+    if (S.lv < JOB_LV[S.job.length]) return;
+    S.job.push(b.dataset.job); skCd = 3; php = P().hp; say('전직 완료!'); renderTab(); });
   const rb = $('rb');
   if (rb) rb.onclick = () => { if (confirm('환생하시겠습니까?')) {
     const keep = {rebirth:S.rebirth+1, gem:S.gem, best:S.best, inv:S.inv, equip:S.equip, pity:S.pity, pity10:S.pity10, pulls:S.pulls, nid:S.nid};
@@ -239,7 +296,7 @@ function renderTab(){
 function render(){
   const p = P();
   $('lv').textContent = 'Lv.' + S.lv;
-  $('job').textContent = S.rebirth ? `환생 ${S.rebirth}회` : '모험가';
+  const jn = jobNodes(); $('job').textContent = (jn.length ? jn[jn.length-1].n : '모험가') + (S.rebirth ? ` (환생 ${S.rebirth})` : '');
   $('meso').textContent = fmt(S.meso); $('gem').textContent = S.gem;
   $('mhpbar').style.width = Math.max(0, mhp/mmax*100) + '%';
   $('phpbar').style.width = Math.max(0, php/p.hp*100) + '%';
@@ -247,7 +304,7 @@ function render(){
   $('exptext').textContent = `${fmt(S.exp)} / ${fmt(need(S.lv))}`;
   $('mapname').innerHTML = `<b>${MAPS[S.map].name}</b> · 스테이지 ${S.stage}/${STAGES}`;
   $('mname').textContent = isBoss ? `BOSS (${Math.ceil(bossT)}s)` : MAPS[S.map].mon;
-  $('stageinfo').textContent = `공격 ${fmt(p.atk)} · HP ${fmt(p.hp)} · 방어 ${fmt(p.def)} · 크리 ${(p.crit*100).toFixed(1)}%/${Math.round(p.cdmg*100)}% · 처치 ${S.kills%10}/10`;
+  $('stageinfo').textContent = `공격 ${fmt(p.atk)} · HP ${fmt(p.hp)} · 방어 ${fmt(p.def)} · 크리 ${(p.crit*100).toFixed(1)}%/${Math.round(p.cdmg*100)}% · 처치 ${S.kills%10}/10` + (jobNodes()[0] ? ` · ${jobNodes()[0].sk[0]} ${Math.max(0,Math.ceil(skCd))}s` : '');
 }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   tab = b.dataset.tab; document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on', x===b)); renderTab(); });

@@ -117,11 +117,11 @@ function jm(){
 const modTxt = m => Object.keys(m).map(k => ADD[k] ? `${MODTXT[k]} +${Math.round(m[k]*100)}%` : `${MODTXT[k]} ×${m[k]}`).join(' · ');
 const PULL1 = 5, PULL10 = 45, STAGES = 10;
 const STATS = [
-  {k:'atk',  name:'공격력 단련', desc:'공격력 +5',  base:50,  g:1.18},
-  {k:'hp',   name:'체력 단련',   desc:'최대 HP +40', base:40,  g:1.17},
-  {k:'crit', name:'크리티컬',    desc:'크리율 +0.5% (최대 80%)', base:200, g:1.22, max:160},
-  {k:'cdmg', name:'크리 데미지', desc:'크뎀 +2%',    base:300, g:1.2},
-  {k:'meso', name:'메소 획득',   desc:'메소 +3%',    base:500, g:1.25},
+  {k:'atk',  name:'공격력 단련', desc:'공격력 +5',  base:50,  g:1.09},
+  {k:'hp',   name:'체력 단련',   desc:'최대 HP +40', base:40,  g:1.09},
+  {k:'crit', name:'크리티컬',    desc:'크리율 +0.5% (최대 80%)', base:200, g:1.11, max:160},
+  {k:'cdmg', name:'크리 데미지', desc:'크뎀 +2%',    base:300, g:1.10},
+  {k:'meso', name:'메소 획득',   desc:'메소 +3%',    base:500, g:1.12},
 ];
 
 const fresh = () => ({lv:1,exp:0,meso:0,gem:0,map:0,kills:0,stat:{atk:0,hp:0,crit:0,cdmg:0,meso:0},
@@ -157,7 +157,9 @@ const P = () => {
   };
 };
 const upCost = (s) => Math.floor(s.base * Math.pow(s.g, S.stat[s.k]));
-const gearCost = k => Math.floor(100 * Math.pow(1.35, S.gear[k]));
+// n레벨을 한 번에 올릴 때의 총 비용 (최대치 제한 포함)
+function bulkCost(s, n){ let t = 0, lv = S.stat[s.k]; for (let i = 0; i < n && !(s.max && lv >= s.max); i++, lv++) t += Math.floor(s.base * Math.pow(s.g, lv)); return t; }
+const gearCost = k => Math.floor(100 * Math.pow(1.22, S.gear[k]));
 const gearRate = k => Math.max(.15, 1 - S.gear[k]*.02);
 
 // combat state
@@ -396,7 +398,7 @@ function renderTab(){
     STATS.forEach(s => {
       const c = upCost(s), maxed = s.max && S.stat[s.k] >= s.max;
       h += `<div class="row"><div><b>${s.name}</b> Lv.${S.stat[s.k]}<small>${s.desc}</small></div>
-        <button data-s="${s.k}" ${S.meso<c||maxed?'disabled':''}>💰${fmt(c)}</button></div>`;
+        <span><button data-s="${s.k}" ${S.meso<c||maxed?'disabled':''}>💰${fmt(c)}</button> <button data-s10="${s.k}" ${S.meso<c||maxed?'disabled':''}>×10 💰${fmt(bulkCost(s,10))}</button></span></div>`;
     });
   } else if (tab === 'gear') {
     GEAR.forEach(g => { const e = S.equip[g.k]; h += `<div class="row"><div>${g.e} ${e ? itemHtml(e) : '<small>미장착</small>'}</div></div>`; });
@@ -474,6 +476,9 @@ function renderTab(){
     if (S.lastPull.length) h += '<hr>' + S.lastPull.map(x => `<div class="row">${GEAR.find(g=>g.k===kslot(x.key)).e} ${itemHtml(x.key)}${x.isNew?' <b>NEW</b>':''}${x.eq?' <b>★장착</b>':''}</div>`).join('');
   }
   el.innerHTML = h;
+  el.querySelectorAll('[data-s10]').forEach(b => b.onclick = () => { const s = STATS.find(x=>x.k===b.dataset.s10);
+    for (let i = 0; i < 10; i++) { const c = upCost(s); if (S.meso < c || (s.max && S.stat[s.k] >= s.max)) break; S.meso -= c; S.stat[s.k]++; }
+    renderTab(); });
   el.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
     const s = STATS.find(x=>x.k===b.dataset.s), c = upCost(s);
     if (S.meso >= c) { S.meso -= c; S.stat[s.k]++; renderTab(); }

@@ -781,7 +781,14 @@ function render(){
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   tab = b.dataset.tab; document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on', x===b)); renderTab(); });
 $('save').onclick = () => { save(); say('저장됨'); };
-$('reset').onclick = () => { if (confirm('정말 초기화?')) { localStorage.removeItem('mapleIdle'); S = fresh(); respawnPlayer(); spawn(); renderMaps(); renderTab(); } };
+// 초기화: 브라우저 confirm()은 막혀 있으므로 화면 안에서 두 번 눌러 확인
+let resetArm = 0;
+$('reset').onclick = () => {
+  if (!resetArm) { $('reset').textContent = '정말 초기화? 한 번 더 누르면 삭제'; resetArm = setTimeout(() => { resetArm = 0; $('reset').textContent = '초기화'; }, 4000); return; }
+  clearTimeout(resetArm); resetArm = 0; $('reset').textContent = '초기화';
+  try { localStorage.removeItem('mapleIdle'); } catch(e) {}
+  S = fresh(); isBoss = false; skCd = 3; rd = 0; respawnPlayer(); spawn(); renderMaps(); renderTab(); say('초기화되었습니다');
+};
 
 claimLv(); mergeMax(); autoAll(); offline(); respawnPlayer(); spawn(); renderMaps(); renderTab();
 setInterval(tick, 100);

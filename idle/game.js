@@ -32,6 +32,27 @@ const ITEM = {
   armor: {base:18,  names:['천 옷','가죽 갑옷','미스릴 갑옷','용린 갑옷','시간의 갑주']},
   shoes: {base:2,   names:['고무 신발','가죽 부츠','바람의 신발','천둥 부츠','시공의 신발']},
 };
+const PETS = {
+  slime:  {n:'슬라임',   e:'🟢', r:0, b:{atk:.05}},
+  chick:  {n:'병아리',   e:'🐥', r:0, b:{meso:.10}},
+  cat:    {n:'고양이',   e:'🐱', r:1, b:{crit:.03,atk:.05}},
+  owl:    {n:'부엉이',   e:'🦉', r:1, b:{exp:.15}},
+  wolf:   {n:'늑대',     e:'🐺', r:2, b:{atk:.15,hp:.1}},
+  fox:    {n:'구미호',   e:'🦊', r:2, b:{meso:.25,exp:.1}},
+  unicorn:{n:'유니콘',   e:'🦄', r:3, b:{hp:.3,exp:.25,spd:.05}},
+  dragon: {n:'드래곤',   e:'🐲', r:4, b:{atk:.4,crit:.05,meso:.2}},
+};
+const PETBT = {atk:'공격력',hp:'HP',meso:'메소',exp:'경험치',crit:'크리율',spd:'공속'};
+const PET1 = 10, PET10 = 90, PETMAX = 20, PETSLOT = 2;
+const petLv = id => S.pets[id] ? S.pets[id].lv : 0;
+const petMul = id => 1 + .15*(petLv(id)-1);
+const petTxt = id => Object.entries(PETS[id].b).map(([k,v]) => `${PETBT[k]} +${Math.round(v*petMul(id)*100)}%`).join(' · ');
+function pb(){
+  const o = {atk:1,hp:1,meso:1,exp:1,crit:0,spd:1};
+  S.petEq.forEach(id => { if (!id || !S.pets[id]) return;
+    for (const k in PETS[id].b) { const v = PETS[id].b[k]*petMul(id); if (k === 'crit') o.crit += v; else o[k] += v; } });
+  return o;
+}
 const JOB_LV = [10, 40, 80, 130];
 // m: 배수(atk,hp,def,spd,meso,skill) / 가산(crit,cdmg,regen)
 const TREE = {
@@ -72,23 +93,23 @@ const STATS = [
 ];
 
 const fresh = () => ({lv:1,exp:0,meso:0,gem:0,map:0,kills:0,rebirth:0,stat:{atk:0,hp:0,crit:0,cdmg:0,meso:0},
-  gear:{weapon:0,hat:0,armor:0,shoes:0},best:0,last:Date.now(),stage:1,clear:{},job:[],inv:[],equip:{weapon:null,hat:null,armor:null,shoes:null},pity:0,pity10:0,pulls:0,nid:1,lastPull:[]});
+  gear:{weapon:0,hat:0,armor:0,shoes:0},best:0,last:Date.now(),stage:1,clear:{},job:[],pets:{},petEq:[null,null],ppity:0,ppulls:0,lastEgg:[],inv:[],equip:{weapon:null,hat:null,armor:null,shoes:null},pity:0,pity10:0,pulls:0,nid:1,lastPull:[]});
 let S = fresh();
 try { const raw = localStorage.getItem('mapleIdle'); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch(e){}
 
 const rebMul = () => 1 + S.rebirth * 0.5;
 const need = lv => Math.floor(20 * Math.pow(lv, 2.1) * 1.05);
 const P = () => {
-  const J = jm(), E = S.equip, ep = k => E[k] ? E[k].pow : 0;
-  const atk = (10 + S.lv*3 + S.stat.atk*5 + S.gear.weapon*12 + ep('weapon')) * rebMul() * J.atk;
+  const J = jm(), B = pb(), E = S.equip, ep = k => E[k] ? E[k].pow : 0;
+  const atk = (10 + S.lv*3 + S.stat.atk*5 + S.gear.weapon*12 + ep('weapon')) * rebMul() * J.atk * B.atk;
   return {
     atk,
-    hp: (100 + S.lv*20 + S.stat.hp*40 + S.gear.hat*60 + ep('hat')) * rebMul() * J.hp,
+    hp: (100 + S.lv*20 + S.stat.hp*40 + S.gear.hat*60 + ep('hat')) * rebMul() * J.hp * B.hp,
     def: (S.gear.armor*6 + S.lv + ep('armor')) * J.def,
-    crit: Math.min(.8, .05 + S.stat.crit*.005 + J.crit),
+    crit: Math.min(.8, .05 + S.stat.crit*.005 + J.crit + B.crit),
     cdmg: 1.5 + S.stat.cdmg*.02 + J.cdmg,
-    spd: (1 + (S.gear.shoes*2 + ep('shoes'))/100) * J.spd,
-    meso: (1 + S.stat.meso*.03) * J.meso,
+    spd: (1 + (S.gear.shoes*2 + ep('shoes'))/100) * J.spd * B.spd,
+    meso: (1 + S.stat.meso*.03) * J.meso * B.meso, exp: B.exp,
     skill: J.skill, regen: J.regen,
   };
 };
@@ -97,7 +118,7 @@ const gearCost = k => Math.floor(100 * Math.pow(1.35, S.gear[k]));
 const gearRate = k => Math.max(.15, 1 - S.gear[k]*.02);
 
 // combat state
-let mhp, mmax, php, isBoss = false, bossT = 0, atkCd = 0, monCd = 0, skCd = 3;
+let petCd = 2, mhp, mmax, php, isBoss = false, bossT = 0, atkCd = 0, monCd = 0, skCd = 3;
 const mon = () => {
   const m = MAPS[S.map], boss = isBoss, sm = Math.pow(1.35, S.stage-1), rm = Math.pow(1.25, S.stage-1);
   return {hp: m.hp * sm * (boss ? 12 : 1), exp: m.exp * rm * (boss ? 10 : 1), meso: m.meso * rm * (boss ? 10 : 1)};
@@ -110,7 +131,7 @@ function float(t, crit, side){
   $('floaters').appendChild(f); setTimeout(()=>f.remove(), 800);
 }
 function gain(exp, meso){
-  S.exp += exp; S.meso += meso * P().meso;
+  const pp = P(); S.exp += exp * pp.exp; S.meso += meso * pp.meso;
   while (S.exp >= need(S.lv)) { S.exp -= need(S.lv); S.lv++; php = P().hp; }
 }
 function kill(){
@@ -135,6 +156,14 @@ function tick(){
     const c = Math.random() < p.crit, d = p.atk * (c ? p.cdmg : 1) * (.9 + Math.random()*.2);
     mhp -= d; float(fmt(d), c, 'm');
     $('monster').classList.add('hit'); setTimeout(()=>$('monster').classList.remove('hit'), 150);
+    if (mhp <= 0) kill();
+  }
+  petCd -= DT;
+  if (petCd <= 0) {
+    petCd = 2;
+    S.petEq.forEach(id => { if (!id || !S.pets[id]) return;
+      const d = p.atk * (.15 + .1*PETS[id].r) * petMul(id);
+      mhp -= d; float(PETS[id].e + fmt(d), false, 'm'); });
     if (mhp <= 0) kill();
   }
   const root = jobNodes()[0];
@@ -202,6 +231,25 @@ function pull(n){
 const statTxt = it => it.slot === 'shoes' ? `공속 +${it.pow}%` : `${GEAR.find(g=>g.k===it.slot).stat} +${fmt(it.pow)}`;
 const itemHtml = it => `<span style="color:${RARITY[it.r].c};font-weight:700">[${RARITY[it.r].n}] ${it.name}</span> <small>${statTxt(it)}</small>`;
 
+// pet gacha
+function pullPet(minR){
+  S.ppulls++; S.ppity++;
+  let r = roll(minR); if (S.ppity >= 80) r = 4;
+  if (r >= 4) S.ppity = 0;
+  const pool = Object.keys(PETS).filter(k => PETS[k].r === r);
+  const id = pool[Math.floor(Math.random()*pool.length)];
+  const isNew = !S.pets[id];
+  if (isNew) { S.pets[id] = {lv:1, sh:0}; const slot = S.petEq.indexOf(null); if (slot >= 0 && slot < PETSLOT) S.petEq[slot] = id; }
+  else S.pets[id].sh++;
+  return {id, isNew};
+}
+function eggs(n){
+  const cost = n === 10 ? PET10 : PET1;
+  if (S.gem < cost) return;
+  S.gem -= cost; S.lastEgg = [];
+  for (let i = 0; i < n; i++) S.lastEgg.push(pullPet(n === 10 && i === 9 ? 1 : 0));
+  renderTab();
+}
 // UI
 let tab = 'stats';
 function renderMaps(){
@@ -254,6 +302,21 @@ function renderTab(){
         h += `<div class="row"><div>${n.e||''} <b>${n.n}</b><small>${modTxt(n.m)}${n.sk ? '<br>스킬: ' + n.sk[0] : ''}</small></div><button data-job="${id}">전직</button></div>`; });
     }
     h += '<hr><small>환생하면 전직이 초기화되어 다시 선택할 수 있습니다.</small>';
+  } else if (tab === 'pet') {
+    h += `<div class="row"><div><b>장착 중 (${PETSLOT}칸)</b></div><div>💎 ${S.gem}</div></div>`;
+    for (let i = 0; i < PETSLOT; i++) { const id = S.petEq[i];
+      h += `<div class="row"><div>${id ? PETS[id].e + ' <b style="color:'+RARITY[PETS[id].r].c+'">'+PETS[id].n+' Lv.'+petLv(id)+'</b><small>'+petTxt(id)+' · 2초마다 자동 공격</small>' : '<small>빈 칸</small>'}</div>${id ? `<button data-un="${i}">해제</button>` : ''}</div>`; }
+    h += '<hr>';
+    h += `<div class="row"><div><b>펫 알 뽑기</b><small>천장 ${S.ppity}/80 (레전더리 보장) · 총 ${S.ppulls}회</small></div></div>`;
+    h += '<table class="rates"><tr>' + RARITY.map((r,i)=>{ const n = Object.values(PETS).filter(p=>p.r===i).length; return `<td style="color:${r.c}"><b>${r.n}</b><br>${r.rate}%<br><small>종당 ${(r.rate/n).toFixed(1)}%</small></td>`; }).join('') + '</tr></table>';
+    h += `<div class="row"><button id="e1" ${S.gem<PET1?'disabled':''}>1회 💎${PET1}</button><button id="e10" ${S.gem<PET10?'disabled':''}>10회 💎${PET10} (레어↑ 1개 보장)</button></div>`;
+    if (S.lastEgg.length) h += '<small>결과: ' + S.lastEgg.map(x => `${PETS[x.id].e}${PETS[x.id].n}${x.isNew?'(NEW)':''}`).join(', ') + '</small>';
+    h += '<hr><b>도감</b>';
+    Object.keys(PETS).sort((a,b)=>PETS[b].r-PETS[a].r).forEach(id => { const p = PETS[id], o = S.pets[id];
+      if (!o) { h += `<div class="row"><div style="opacity:.45">❔ ${p.n}<small>${RARITY[p.r].n} · 미발견</small></div></div>`; return; }
+      const need = o.lv, can = o.sh >= need && o.lv < PETMAX, eq = S.petEq.includes(id);
+      h += `<div class="row"><div>${p.e} <b style="color:${RARITY[p.r].c}">${p.n}</b> Lv.${o.lv}<small>${petTxt(id)}<br>조각 ${o.sh}/${o.lv < PETMAX ? need : 'MAX'}</small></div>
+        <span><button data-pl="${id}" ${can?'':'disabled'}>강화</button> <button data-pe="${id}" ${eq?'disabled':''}>장착</button></span></div>`; });
   } else if (tab === 'gacha') {
     h += `<div class="row"><div><b>장비 뽑기</b><small>천장: 10회 안에 에픽↑ 보장 · 100회 레전더리 보장 (현재 ${S.pity10}/10 · ${S.pity}/100)</small></div><div>💎 ${S.gem}</div></div>`;
     h += '<table class="rates"><tr>' + RARITY.map(r=>`<td style="color:${r.c}"><b>${r.n}</b><br>${r.rate}%</td>`).join('') + '</tr></table>';
@@ -288,14 +351,22 @@ function renderTab(){
   el.querySelectorAll('[data-job]').forEach(b => b.onclick = () => {
     if (S.lv < JOB_LV[S.job.length]) return;
     S.job.push(b.dataset.job); skCd = 3; php = P().hp; say('전직 완료!'); renderTab(); });
+  el.querySelectorAll('[data-un]').forEach(b => b.onclick = () => { S.petEq[b.dataset.un] = null; renderTab(); });
+  el.querySelectorAll('[data-pl]').forEach(b => b.onclick = () => { const o = S.pets[b.dataset.pl];
+    if (o.sh >= o.lv && o.lv < PETMAX) { o.sh -= o.lv; o.lv++; renderTab(); } });
+  el.querySelectorAll('[data-pe]').forEach(b => b.onclick = () => { const id = b.dataset.pe;
+    let slot = S.petEq.slice(0, PETSLOT).indexOf(null); if (slot < 0) slot = 0; S.petEq[slot] = id; renderTab(); });
+  if ($('e1')) $('e1').onclick = () => eggs(1);
+  if ($('e10')) $('e10').onclick = () => eggs(10);
   const rb = $('rb');
   if (rb) rb.onclick = () => { if (confirm('환생하시겠습니까?')) {
-    const keep = {rebirth:S.rebirth+1, gem:S.gem, best:S.best, inv:S.inv, equip:S.equip, pity:S.pity, pity10:S.pity10, pulls:S.pulls, nid:S.nid};
+    const keep = {rebirth:S.rebirth+1, gem:S.gem, best:S.best, inv:S.inv, equip:S.equip, pity:S.pity, pity10:S.pity10, pulls:S.pulls, nid:S.nid, pets:S.pets, petEq:S.petEq, ppity:S.ppity, ppulls:S.ppulls};
     S = Object.assign(fresh(), keep); isBoss=false; respawnPlayer(); spawn(); renderMaps(); renderTab(); } };
 }
 function render(){
   const p = P();
   $('lv').textContent = 'Lv.' + S.lv;
+  $('petview').textContent = S.petEq.map(id => id ? PETS[id].e : '').join('');
   const jn = jobNodes(); $('job').textContent = (jn.length ? jn[jn.length-1].n : '모험가') + (S.rebirth ? ` (환생 ${S.rebirth})` : '');
   $('meso').textContent = fmt(S.meso); $('gem').textContent = S.gem;
   $('mhpbar').style.width = Math.max(0, mhp/mmax*100) + '%';

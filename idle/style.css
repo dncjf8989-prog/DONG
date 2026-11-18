@@ -44,3 +44,6 @@ body.stealth button{border-radius:0;padding:3px 6px;font-size:12px}
 .cbar{background:#2b579a;color:#fff;padding:6px 12px;font-size:13px}
 .cpage{max-width:700px;margin:20px auto;padding:0 20px;line-height:1.7}
 .cpage table{border-collapse:collapse;width:100%}.cpage td,.cpage th{border:1px solid #bbb;padding:4px 8px;text-align:left}
+
+#petview{position:absolute;left:36%;bottom:14px;font-size:24px;letter-spacing:2px}
+nav button{padding:6px 2px;font-size:13px}

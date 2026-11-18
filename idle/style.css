@@ -50,3 +50,5 @@ nav button{padding:6px 2px;font-size:13px}
 
 #mateview{position:absolute;left:2%;bottom:14px;font-size:20px;letter-spacing:1px}
 nav{flex-wrap:wrap}nav button{min-width:22%}
+
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:2px 14px;font-size:13px}.sg div{display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding:2px 0}.sg span{opacity:.7}

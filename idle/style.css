@@ -35,7 +35,8 @@ hr{border:0;border-top:1px solid var(--line);margin:8px 0}
 .rates{width:100%;text-align:center;font-size:12px;margin:6px 0;border-collapse:collapse}
 
 body.stealth{filter:grayscale(1)}
-body.stealth #field,body.stealth #maps,body.stealth header div:first-child b{display:none}
+body.stealth #field,body.stealth header div:first-child b{display:none}
+body.stealth #maps{flex-direction:column;gap:2px;margin-top:4px}body.stealth #maps button{text-align:left}
 body.stealth #app{max-width:420px;font-size:12px;opacity:.85}
 body.stealth section{border-radius:0;padding:6px}
 body.stealth button{border-radius:0;padding:3px 6px;font-size:12px}

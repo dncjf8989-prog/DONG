@@ -494,7 +494,7 @@ function renderMaps(){
   $('maps').innerHTML = '';
   MAPS.forEach((m,i) => {
     const b = document.createElement('button');
-    b.textContent = m.e + ' Lv.' + m.lv;
+    b.textContent = document.body.classList.contains('stealth') ? `${i+1}. ${m.name} (Lv.${m.lv})` : m.e + ' Lv.' + m.lv;
     b.disabled = S.lv < m.lv || i === S.map;
     b.onclick = () => { S.map = i; S.stage = Math.min(STAGES, (S.clear[i]||0)+1); isBoss = false; S.kills = 0; spawn(); renderMaps(); };
     $('maps').appendChild(b);
@@ -673,6 +673,7 @@ function setStealth(on){
   document.body.classList.toggle('stealth', on);
   document.title = on ? '문서1 - 편집기' : TITLE;
   $('stealth').textContent = on ? '일반 모드' : '위장 모드';
+  renderMaps();
   try { localStorage.setItem('mapleStealth', on ? '1' : ''); } catch(e){}
 }
 $('stealth').onclick = () => setStealth(!document.body.classList.contains('stealth'));

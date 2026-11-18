@@ -121,19 +121,18 @@ const STATS = [
   {k:'meso', name:'메소 획득',   desc:'메소 +3%',    base:500, g:1.25},
 ];
 
-const fresh = () => ({lv:1,exp:0,meso:0,gem:0,map:0,kills:0,rebirth:0,stat:{atk:0,hp:0,crit:0,cdmg:0,meso:0},
+const fresh = () => ({lv:1,exp:0,meso:0,gem:0,map:0,kills:0,stat:{atk:0,hp:0,crit:0,cdmg:0,meso:0},
   gear:{weapon:0,hat:0,armor:0,shoes:0},best:0,last:Date.now(),stage:1,clear:{},job:[],pets:{},mates:{},party:[null,null,null],petEq:[null,null],ppity:0,ppulls:0,lastEgg:[],inv:[],equip:{weapon:null,hat:null,armor:null,shoes:null},pity:0,pity10:0,pulls:0,nid:1,lastPull:[]});
 let S = fresh();
 try { const raw = localStorage.getItem('mapleIdle'); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch(e){}
 
-const rebMul = () => 1 + S.rebirth * 0.5;
 const need = lv => Math.floor(20 * Math.pow(lv, 2.1) * 1.05);
 const P = () => {
   const J = jm(), B = pb(), M = mt(), H = hold(), E = S.equip, ep = k => (E[k] ? E[k].pow : 0) + H[k];
-  const atk = (10 + S.lv*3 + S.stat.atk*5 + S.gear.weapon*12 + ep('weapon')) * rebMul() * J.atk * B.atk * M.atk;
+  const atk = (10 + S.lv*3 + S.stat.atk*5 + S.gear.weapon*12 + ep('weapon')) * J.atk * B.atk * M.atk;
   return {
     atk,
-    hp: (100 + S.lv*20 + S.stat.hp*40 + S.gear.hat*60 + ep('hat')) * rebMul() * J.hp * B.hp,
+    hp: (100 + S.lv*20 + S.stat.hp*40 + S.gear.hat*60 + ep('hat')) * J.hp * B.hp,
     def: (S.gear.armor*6 + S.lv + ep('armor')) * J.def,
     crit: Math.min(.8, .05 + S.stat.crit*.005 + J.crit + B.crit),
     cdmg: 1.5 + S.stat.cdmg*.02 + J.cdmg,
@@ -339,9 +338,9 @@ function renderTab(){
       Object.keys(kids).forEach(id => { const n = kids[id];
         h += `<div class="row"><div>${n.e||''} <b>${n.n}</b><small>${modTxt(n.m)}${n.sk ? '<br>스킬: ' + n.sk[0] : ''}</small></div><button data-job="${id}">전직</button></div>`; });
     }
-    h += '<hr><small>환생하면 전직이 초기화되어 다시 선택할 수 있습니다.</small>';
+    h += '';
   } else if (tab === 'mate') {
-    h += `<div class="row"><b>파티 (${PARTY}칸)</b><small>환생하면 동료가 초기화됩니다</small></div>`;
+    h += `<div class="row"><b>파티 (${PARTY}칸)</b></div>`;
     for (let i = 0; i < PARTY; i++) { const id = S.party[i];
       h += `<div class="row"><div>${id ? MATES[id].e + ' <b>' + MATES[id].n + ' Lv.' + mateLv(id) + '</b><small>' + MATES[id].role + ' · ' + mateTxt(id) + '</small>' : '<small>빈 칸</small>'}</div>${id ? `<button data-mu="${i}">해제</button>` : ''}</div>`; }
     h += '<hr>';
@@ -373,10 +372,6 @@ function renderTab(){
     h += `<div class="row"><button id="p1" ${S.gem<PULL1?'disabled':''}>1회 💎${PULL1}</button><button id="p10" ${S.gem<PULL10?'disabled':''}>10회 💎${PULL10} (레어↑ 1개 보장)</button></div>`;
     h += `<small>💎는 보스 처치(첫 클리어 2배)로 얻습니다. 총 ${S.pulls}회 뽑음.</small>`;
     if (S.lastPull.length) h += '<hr>' + S.lastPull.map(it => `<div class="row">${GEAR.find(g=>g.k===it.slot).e} ${itemHtml(it)}${it.eq?' <b>★장착</b>':''}</div>`).join('');
-  } else {
-    const gain = Math.floor(S.lv/20);
-    h = `<div class="row"><div><b>환생 ${S.rebirth}회</b><small>모든 스탯 ×${rebMul().toFixed(1)} (환생마다 +0.5)<br>레벨·메소·강화·스테이지 초기화, 💎·장비 유지</small></div>
-      <button id="rb" ${S.lv<30?'disabled':''}>환생 (Lv.30↑)</button></div>`;
   }
   el.innerHTML = h;
   el.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
@@ -415,17 +410,13 @@ function renderTab(){
     if (S.meso >= c && mateLv(id) < MATEMAX) { S.meso -= c; S.mates[id].lv++; renderTab(); } });
   el.querySelectorAll('[data-mp]').forEach(b => b.onclick = () => { let sl = S.party.indexOf(null); if (sl < 0) sl = 0; S.party[sl] = b.dataset.mp; renderTab(); });
   el.querySelectorAll('[data-mu]').forEach(b => b.onclick = () => { S.party[b.dataset.mu] = null; renderTab(); });
-  const rb = $('rb');
-  if (rb) rb.onclick = () => { if (confirm('환생하시겠습니까?')) {
-    const keep = {rebirth:S.rebirth+1, gem:S.gem, best:S.best, inv:S.inv, equip:S.equip, pity:S.pity, pity10:S.pity10, pulls:S.pulls, nid:S.nid, pets:S.pets, petEq:S.petEq, ppity:S.ppity, ppulls:S.ppulls};
-    S = Object.assign(fresh(), keep); isBoss=false; respawnPlayer(); spawn(); renderMaps(); renderTab(); } };
 }
 function render(){
   const p = P();
   $('lv').textContent = 'Lv.' + S.lv;
   $('mateview').textContent = S.party.map(id => id ? MATES[id].e : '').join('');
   $('petview').textContent = S.petEq.map(id => id ? PETS[id].e : '').join('');
-  const jn = jobNodes(); $('job').textContent = (jn.length ? jn[jn.length-1].n : '모험가') + (S.rebirth ? ` (환생 ${S.rebirth})` : '');
+  const jn = jobNodes(); $('job').textContent = (jn.length ? jn[jn.length-1].n : '모험가');
   $('meso').textContent = fmt(S.meso); $('gem').textContent = S.gem;
   $('mhpbar').style.width = Math.max(0, mhp/mmax*100) + '%';
   $('phpbar').style.width = Math.max(0, php/p.hp*100) + '%';

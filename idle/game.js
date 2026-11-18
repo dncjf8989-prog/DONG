@@ -26,11 +26,11 @@ const GEAR = [
 // % 단위 부위: 등급별 수치표와 표기
 const PCT = {shoes:'공속 +', gloves:'크리율 +', cape:'받는 피해 -', ring:'크리 데미지 +', neck:'메소·경험치 +'};
 const RARITY = [
-  {n:'일반',     c:'#9aa0a6', rate:55, mul:1},
-  {n:'레어',     c:'#3b9cff', rate:28, mul:2.5},
-  {n:'에픽',     c:'#b05cff', rate:12, mul:6},
-  {n:'유니크',   c:'#ffb020', rate:4,  mul:13},
-  {n:'레전더리', c:'#2ecc71', rate:1,  mul:30},
+  {n:'일반',     c:'#9aa0a6', rate:60, mul:1},
+  {n:'레어',     c:'#3b9cff', rate:27, mul:2.5},
+  {n:'에픽',     c:'#b05cff', rate:10, mul:6},
+  {n:'유니크',   c:'#ffb020', rate:2.5, mul:13},
+  {n:'레전더리', c:'#2ecc71', rate:.5, mul:30},
 ];
 const ITEM = {
   weapon:{base:70,  names:['목검','강철 검','미스릴 대검','엑스칼리버','검은 마법사의 지팡이']},
@@ -62,6 +62,7 @@ const MATES = {
   nero: {n:'네로',   e:'🌑', r:4, role:'암흑기사', cd:2.5,m:18,  b:{atk:.35,red:.12}},
 };
 const MATEBT = {red:'받는 피해 -',regen:'HP 회복/초 +',atk:'공격력 +',exp:'경험치 +',meso:'메소 +'};
+const PITY_L = 200, PITY_PM = 160, PITY_E = 20;
 const MATEMAX = 20, PARTY = 3, MATE1 = 10, MATE10 = 90, MATE100 = 800, MATE1000 = 7600;
 const mateLv = id => S.mates[id] ? S.mates[id].lv : 0;
 const mateMul = id => 1 + .2*(mateLv(id)-1);
@@ -211,7 +212,7 @@ const spTotal = () => Math.max(0, S.lv - SPSTART);
 const spUsed = () => Object.values(S.sp).reduce((a,b)=>a+b, 0);
 const spLeft = () => spTotal() - spUsed();
 const SP = k => (S.sp[k]||0) * SPSTAT[k].per;
-const lvReward = m => ({gem: 5 + m/10, rs: 2*m/10});
+const lvReward = m => ({gem: 3 + m/20, rs: m/10});
 function claimLv(){   // 10레벨마다 자동 지급 (놓친 구간도 한 번에)
   let g = 0, r = 0;
   for (let m = S.lr + 10; m <= S.lv; m += 10) { const x = lvReward(m); g += x.gem; r += x.rs; S.lr = m; }
@@ -259,7 +260,14 @@ function skv(){
   skList().forEach((sk, i) => { const lv = skLv(i); if (lv && skTier() >= sk.tier) for (const k in sk.eff) o[k] += sk.eff[k]*lv; });
   return o;
 }
-const need = lv => Math.floor(20 * Math.pow(lv, 2.1) * 1.05);
+const LVCAP = 200, EXPK = 100;   // 레벨 상한 / 맵 해금 레벨에서 1레벨당 필요한 처치 수(1스테이지 기준)
+const need = lv => Math.floor(40 * Math.pow(lv, 2.4) * Math.pow(1.03, lv));
+// ---- 난이도 곡선: 맵·스테이지를 하나의 티어 T(0~79)로 보고 몬스터 능력치/보상을 계산 ----
+const TIERHP = {h0:20, g:1.30}, TIERDMG = {d0:3, g:1.17};   // 몬스터 HP / 공격력 성장률 (티어당)
+const lvRec = T => { const m = Math.min(MAPS.length-1, Math.floor(T/10)), s = T % 10, a = MAPS[m].lv, b = m+1 < MAPS.length ? MAPS[m+1].lv : LVCAP; return a + (b-a)*s/10; };
+const tierOf = () => S.map * 10 + S.stage - 1;
+const tierExp = T => Math.max(1, need(Math.round(lvRec(T)) + 2) / EXPK);
+const tierMeso = T => 50 * Math.pow(1.09, 1.4*T) / 30;
 const P = () => {
   const J = jm(), B = pb(), M = mt(), R = rv(), K = skv(), H = hold(), E = S.equip, ep = k => (E[k] ? kindPow(E[k]) : 0) + H[k], pg = k => (ep(k) + S.gear[k]*GEAR.find(g=>g.k===k).per) / 100;
   const critRaw = .05 + S.stat.crit*.005 + J.crit + B.crit + pg('gloves') + R.crit + SP('crit') + K.crit;
@@ -283,14 +291,14 @@ const gearRate = k => Math.max(.15, 1 - S.gear[k]*.02);
 
 // combat state
 // 스테이지 난이도 / 보상 성장률 (스테이지당 배수)
-const HPG = 1.6, DMGG = 1.45, RWG = 1.5;
 const bossTime = st => Math.max(15, 32 - st*2) + rv().boss;
-const bossGem = (map, st) => Math.round((3 + map*2) * (1 + .6*(st-1)));
+const bossGem = (map, st) => Math.max(1, Math.round((1 + map) * (1 + .3*(st-1))));
 const mCd = {};
 let petCd = 2, mhp, mmax, php, isBoss = false, bossT = 0, atkCd = 0, monCd = 0, skCd = 3;
+const mon0 = () => { const b = isBoss; isBoss = false; const r = mon(); isBoss = b; return r; };
 const mon = () => {
-  const m = MAPS[S.map], boss = isBoss, sm = Math.pow(HPG, S.stage-1), rm = Math.pow(RWG, S.stage-1);
-  return {hp: m.hp * sm * (boss ? 12 : 1), exp: m.exp * rm * (boss ? 10 : 1), meso: m.meso * rm * (boss ? 10 : 1)};
+  const T = tierOf(), boss = isBoss;
+  return {hp: TIERHP.h0 * Math.pow(TIERHP.g, T) * (boss ? 6 : 1), exp: tierExp(T) * (boss ? 8 : 1), meso: tierMeso(T) * (boss ? 8 : 1)};
 };
 function spawn(){ const m = mon(); mmax = mhp = m.hp; $('monster').firstChild.textContent = isBoss?'👹':MAPS[S.map].e; }
 function respawnPlayer(){ php = P().hp; }
@@ -301,19 +309,20 @@ function float(t, crit, side){
 }
 function gain(exp, meso){
   const pp = P(); S.exp += exp * pp.exp; S.meso += meso * pp.meso;
-  while (S.exp >= need(S.lv)) { S.exp -= need(S.lv); S.lv++; php = P().hp; }
+  while (S.lv < LVCAP && S.exp >= need(S.lv)) { S.exp -= need(S.lv); S.lv++; php = P().hp; }
+  if (S.lv >= LVCAP) S.exp = 0;
   claimLv();
 }
 function kill(){
-  chkDaily(); const m = mon(); gain(m.exp, m.meso); S.kills++; S.tk++;
+  chkDaily(); const m = mon(); gain(m.exp, m.meso); S.kills++; S.tk++; rd = isBoss ? 1.2 : .6;
   if (isBoss) { S.daily.boss++; S.week.boss++; } else { S.daily.kills++; S.week.kills++;
-    if (S.tk % 300 === 0) { const g = 5 + S.map*2 + S.stage; S.gem += g; say(`🎁 보석 상자! 💎+${g}`); }
-    if (Math.random() < .02) { const g = 1 + (S.map >> 1) + (S.stage >> 1); S.gem += g; float('💎+' + g, true, 'm'); } }
+    if (S.tk % 1000 === 0) { const g = 5 + S.map*2 + S.stage; S.gem += g; say(`🎁 보석 상자! 💎+${g}`); }
+    if (Math.random() < .003) { const g = 1 + (S.map >> 1) + (S.stage >> 1); S.gem += g; float('💎+' + g, true, 'm'); } }
   if (isBoss) {
-    const g = bossGem(S.map, S.stage); S.gem += g; isBoss = false; S.best = Math.max(S.best, S.map);
+    const first0 = (S.clear[S.map]||0) < S.stage, g = first0 ? bossGem(S.map, S.stage) : (Math.random() < .1 ? 1 : 0); S.gem += g; isBoss = false; S.best = Math.max(S.best, S.map);
     const first = (S.clear[S.map]||0) < S.stage;
-    if (first) { S.clear[S.map] = S.stage; say(`스테이지 ${S.stage} 클리어! 💎+${g} (첫 클리어)`); S.gem += g; }
-    else say(`보스 처치! 💎+${g}`);
+    if (first) { S.clear[S.map] = S.stage; say(`스테이지 ${S.stage} 클리어! 💎+${g} (첫 클리어)`); }
+    else if (g) say(`보스 처치! 💎+${g}`);
     { const rs = (1 + S.map + (S.stage >> 1)) * (first ? 3 : 1); S.rs += rs; say(`보스 처치! 💎+${g} · 💠+${rs}` + (first ? ' (첫 클리어)' : '')); }
     if (S.stage < STAGES) S.stage++;
     S.kills = 0;
@@ -322,7 +331,9 @@ function kill(){
   spawn();
 }
 const DT = .1;
+let rd = 0;   // 몬스터 재등장 대기
 function tick(){
+  if (rd > 0) { rd -= DT; return; }
   const p = P(), m = MAPS[S.map];
   atkCd -= DT * p.spd;
   if (atkCd <= 0) {
@@ -359,7 +370,7 @@ function tick(){
   monCd -= DT;
   if (monCd <= 0) {
     monCd = 1;
-    const raw = (m.hp / 32) * Math.pow(DMGG, S.stage-1) * (isBoss ? 1.5 : 1) + m.lv * 2;
+    const raw = TIERDMG.d0 * Math.pow(TIERDMG.g, tierOf()) * (isBoss ? 1.5 : 1);
     const d = Math.max(1, raw - p.def) * (1 - p.red);
     php -= d; float('-'+fmt(d), false, 'p');
     if (php <= 0) { isBoss = false; S.kills = 0; respawnPlayer(); spawn(); say('쓰러졌습니다... 부활!'); }
@@ -373,9 +384,9 @@ function offline(){
   if (sec < 60) return;
   const p = P(), m = MAPS[S.map];
   const dps = p.atk * (1 + p.crit*(p.cdmg-1)) * p.spd;
-  const kills = Math.floor(sec * dps / m.hp * .5);
+  const mm = mon0(), kills = Math.floor(sec * dps / mm.hp * .5);
   const og = Math.floor(sec/600); S.gem += og;
-  if (kills > 0) { gain(kills*m.exp*.5, kills*m.meso*.5); say(`방치 보상: ${Math.floor(sec/60)}분 · ${fmt(kills)}마리 처치 · 💎${og}`); }
+  if (kills > 0) { gain(kills*mm.exp*.5, kills*mm.meso*.5); say(`방치 보상: ${Math.floor(sec/60)}분 · ${fmt(kills)}마리 처치 · 💎${og}`); }
 }
 
 function say(t){ $('msg').textContent = t; clearTimeout(say.t); say.t = setTimeout(()=>$('msg').textContent='', 4000); }
@@ -408,8 +419,8 @@ function roll(minR){
 function pullOne(minR){
   S.pulls++; S.pity++; S.pity10++;
   let r = roll(minR);
-  if (S.pity >= 100) r = 4;
-  else if (S.pity10 >= 10 && r < 2) r = 2;
+  if (S.pity >= PITY_L) r = 4;
+  else if (S.pity10 >= PITY_E && r < 2) r = 2;
   if (r >= 4) S.pity = 0;
   if (r >= 2) S.pity10 = 0;
   const slot = GEAR[Math.floor(Math.random()*GEAR.length)].k, key = slot + ':' + r;
@@ -447,7 +458,7 @@ function dpsInfo(){
 // mate gacha
 function pullMate(minR){
   S.mpulls++; S.mpity++;
-  let r = roll(minR); if (S.mpity >= 80) r = 4;
+  let r = roll(minR); if (S.mpity >= PITY_PM) r = 4;
   if (r >= 4) S.mpity = 0;
   const pool = Object.keys(MATES).filter(k => MATES[k].r === r);
   const id = pool[Math.floor(Math.random()*pool.length)];
@@ -467,7 +478,7 @@ function recruit(n){
 // pet gacha
 function pullPet(minR){
   S.ppulls++; S.ppity++;
-  let r = roll(minR); if (S.ppity >= 80) r = 4;
+  let r = roll(minR); if (S.ppity >= PITY_PM) r = 4;
   if (r >= 4) S.ppity = 0;
   const pool = Object.keys(PETS).filter(k => PETS[k].r === r);
   const id = pool[Math.floor(Math.random()*pool.length)];
@@ -499,7 +510,7 @@ const WQ = [
 ];
 // 보석 광산: 메소로 확장, 자리를 비운 동안에도 생산 (최대 8시간 보관)
 const MINEMAX = 25, MINECAP = 8*3600;
-const mineRate = () => S.mine.lv * .8;   // 시간당 💎
+const mineRate = () => S.mine.lv * .25;   // 시간당 💎
 const minePending = () => S.mine.lv ? Math.floor(Math.min(MINECAP, (Date.now() - S.mine.t)/1000) * mineRate() / 3600) : 0;
 const mineCost = () => Math.floor(20000 * Math.pow(1.45, S.mine.lv));
 // 메소→보석 교환소 (하루 10회, 살수록 가격 상승)
@@ -558,7 +569,7 @@ function colHtml(t){
     h += `<div class="row c"><div>${id ? c.defs[id].e + ' <b style="color:'+RARITY[c.defs[id].r].c+'">' + c.defs[id].n + '</b> Lv.' + c.lv(id) + (det ? '<small>' + c.sub(id) + ' · ' + c.txt(id) + '</small>' : '') : '<small>빈 칸</small>'}</div>${id && !S.ui.auto ? `<button data-${c.k.un}="${i}">해제</button>` : ''}</div>`; }
   if (t === 'mate') { const D = dpsInfo(); h += `<small>파티 DPS ${fmt(D.mate)} (전체의 ${Math.round(D.mate/D.total*100)}%)</small>`; }
   h += `<small>${det ? c.hold + ' 능력치의 ' + PETHOLD*100 + '%가 적용됩니다. ' : ''}도감 보너스 ${c.coll}</small><hr>`;
-  h += `<div class="row"><div><b>${c.name}</b><small>천장 ${c.pity}/80 · 총 ${c.pulls}회</small></div><span><button id="${c.ids[0]}" ${S.gem<c.cost[0]?'disabled':''}>1회 💎${c.cost[0]}</button> <button id="${c.ids[1]}" ${S.gem<c.cost[1]?'disabled':''}>10회 💎${c.cost[1]}</button> <button id="${c.ids[2]}" ${S.gem<c.cost[2]?'disabled':''}>100회 💎${c.cost[2]}</button> <button id="${c.ids[3]}" ${S.gem<c.cost[3]?'disabled':''}>1000회 💎${c.cost[3]}</button></span></div>`;
+  h += `<div class="row"><div><b>${c.name}</b><small>천장 ${c.pity}/${PITY_PM} · 총 ${c.pulls}회</small></div><span><button id="${c.ids[0]}" ${S.gem<c.cost[0]?'disabled':''}>1회 💎${c.cost[0]}</button> <button id="${c.ids[1]}" ${S.gem<c.cost[1]?'disabled':''}>10회 💎${c.cost[1]}</button> <button id="${c.ids[2]}" ${S.gem<c.cost[2]?'disabled':''}>100회 💎${c.cost[2]}</button> <button id="${c.ids[3]}" ${S.gem<c.cost[3]?'disabled':''}>1000회 💎${c.cost[3]}</button></span></div>`;
   if (det) h += '<table class="rates"><tr>' + RARITY.map((r,i)=>{ const n = ids.filter(id=>c.defs[id].r===i).length; return `<td style="color:${r.c}"><b>${r.n}</b><br>${r.rate}%<br><small>${(r.rate/n).toFixed(1)}%</small></td>`; }).join('') + '</tr></table>';
   h += resultHtml(c.last.map(x => ({r:c.defs[x.id].r, txt:`${c.defs[x.id].e}${c.defs[x.id].n}`, isNew:x.isNew})));
   h += '<hr>';
@@ -667,10 +678,10 @@ function renderTab(){
   } else if (tab === 'mate' || tab === 'pet') {
     h += colHtml(tab);
   } else if (tab === 'gacha') {
-    h += `<div class="row"><div><b>장비 뽑기</b><small>천장: 10회 안에 에픽↑ 보장 · 100회 레전더리 보장 (현재 ${S.pity10}/10 · ${S.pity}/100)</small></div><div>💎 ${S.gem}</div></div>`;
+    h += `<div class="row"><div><b>장비 뽑기</b><small>천장: ${PITY_E}회 안에 에픽↑ 보장 · ${PITY_L}회 레전더리 보장 (현재 ${S.pity10}/${PITY_E} · ${S.pity}/${PITY_L})</small></div><div>💎 ${S.gem}</div></div>`;
     h += '<table class="rates"><tr>' + RARITY.map(r=>`<td style="color:${r.c}"><b>${r.n}</b><br>${r.rate}%</td>`).join('') + '</tr></table>';
     h += `<div class="row"><button id="p1" ${S.gem<PULL1?'disabled':''}>1회 💎${PULL1}</button><button id="p10" ${S.gem<PULL10?'disabled':''}>10회 💎${PULL10}</button><button id="p100" ${S.gem<PULL100?'disabled':''}>100회 💎${PULL100}</button><button id="p1000" ${S.gem<PULL1000?'disabled':''}>1000회 💎${PULL1000}</button></div><small>10회마다 레어↑ 1개 보장</small>`;
-    h += `<small>💎는 보스 처치(첫 클리어 2배)로 얻습니다. 총 ${S.pulls}회 뽑음.</small>`;
+    h += `<small>💎는 스테이지 첫 클리어·퀘스트·광산 등으로 얻습니다. 총 ${S.pulls}회 뽑음.</small>`;
     if (S.lastPull.length > 10) h += '<hr>' + resultHtml(S.lastPull.map(x => ({r:kr(x.key), txt:kindName(x.key), isNew:x.isNew})));
     else if (S.lastPull.length) h += '<hr>' + S.lastPull.map(x => `<div class="row">${GEAR.find(g=>g.k===kslot(x.key)).e} ${itemHtml(x.key)}${x.isNew?' <b>NEW</b>':''}${x.eq?' <b>★장착</b>':''}</div>`).join('');
   }
@@ -761,8 +772,8 @@ function render(){
   $('meso').textContent = fmt(S.meso); $('gem').textContent = S.gem; $('rs').textContent = fmt(S.rs);
   $('mhpbar').style.width = Math.max(0, mhp/mmax*100) + '%';
   $('phpbar').style.width = Math.max(0, php/p.hp*100) + '%';
-  $('expbar').style.width = S.exp/need(S.lv)*100 + '%';
-  $('exptext').textContent = `${fmt(S.exp)} / ${fmt(need(S.lv))}`;
+  $('expbar').style.width = (S.lv >= LVCAP ? 100 : S.exp/need(S.lv)*100) + '%';
+  $('exptext').textContent = S.lv >= LVCAP ? 'MAX' : `${fmt(S.exp)} / ${fmt(need(S.lv))}`;
   $('mapname').innerHTML = `<b>${MAPS[S.map].name}</b> · 스테이지 ${S.stage}/${STAGES}`;
   $('mname').textContent = isBoss ? `BOSS (${Math.ceil(bossT)}s)` : MAPS[S.map].mon;
   $('stageinfo').textContent = `공격 ${fmt(p.atk)} · HP ${fmt(p.hp)} · 방어 ${fmt(p.def)} · 크리 ${(p.crit*100).toFixed(1)}%/${Math.round(p.cdmg*100)}% · 처치 ${S.kills%10}/10` + (jobNodes()[0] ? ` · ${jobNodes()[0].sk[0]} ${Math.max(0,Math.ceil(skCd))}s` : '');

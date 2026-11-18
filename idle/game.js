@@ -145,7 +145,7 @@ const PULL1 = 5, PULL10 = 45, STAGES = 10;
 const STATS = [
   {k:'atk',  name:'공격력 단련', desc:'공격력 +5',  base:50,  g:1.09},
   {k:'hp',   name:'체력 단련',   desc:'최대 HP +40', base:40,  g:1.09},
-  {k:'crit', name:'크리티컬',    desc:'크리율 +0.5% (최대 80%)', base:200, g:1.11, max:160},
+  {k:'crit', name:'크리티컬',    desc:'크리율 +0.5% (100% 초과분은 크리 데미지로 전환)', base:200, g:1.11},
   {k:'cdmg', name:'크리 데미지', desc:'크뎀 +2%',    base:300, g:1.10},
   {k:'meso', name:'메소 획득',   desc:'메소 +3%',    base:500, g:1.12},
 ];
@@ -172,13 +172,14 @@ S.party = S.party.map(id => S.mates[id] ? id : null);
 const need = lv => Math.floor(20 * Math.pow(lv, 2.1) * 1.05);
 const P = () => {
   const J = jm(), B = pb(), M = mt(), H = hold(), E = S.equip, ep = k => (E[k] ? kindPow(E[k]) : 0) + H[k], pg = k => (ep(k) + S.gear[k]*GEAR.find(g=>g.k===k).per) / 100;
+  const critRaw = .05 + S.stat.crit*.005 + J.crit + B.crit + pg('gloves');
   const atk = (10 + S.lv*3 + S.stat.atk*5 + S.gear.weapon*12 + ep('weapon')) * J.atk * B.atk * M.atk;
   return {
     atk,
     hp: (100 + S.lv*20 + S.stat.hp*40 + S.gear.hat*60 + ep('hat')) * J.hp * B.hp,
     def: (S.gear.armor*6 + S.lv + ep('armor')) * J.def,
-    crit: Math.min(.8, .05 + S.stat.crit*.005 + J.crit + B.crit + pg('gloves')),
-    cdmg: 1.5 + S.stat.cdmg*.02 + J.cdmg + pg('ring'),
+    crit: Math.min(1, critRaw), critOver: Math.max(0, critRaw - 1),   // 100% 초과분은 크리 데미지로 전환
+    cdmg: 1.5 + S.stat.cdmg*.02 + J.cdmg + pg('ring') + Math.max(0, critRaw - 1),
     spd: (1 + (S.gear.shoes*2 + ep('shoes'))/100) * J.spd * B.spd,
     meso: (1 + S.stat.meso*.03) * J.meso * B.meso * M.meso * (1 + pg('neck')), exp: B.exp * M.exp * (1 + pg('neck')), red: Math.min(.7, M.red + pg('cape')),
     skill: J.skill, regen: J.regen + M.regen,
@@ -471,7 +472,7 @@ function renderTab(){
   if (tab === 'stats') {
     const p = P(), D = dpsInfo(), pc = x => (x*100).toFixed(1).replace(/\.0$/,'') + '%';
     const rows = [['공격력', fmt(p.atk)], ['HP', fmt(p.hp)], ['방어', fmt(p.def)], ['공격속도', '+' + pc(p.spd-1)],
-      ['크리율', pc(p.crit)], ['크리 데미지', pc(p.cdmg)], ['메소 획득', '+' + pc(p.meso-1)], ['경험치 획득', '+' + pc(p.exp-1)],
+      ['크리율', pc(p.crit) + (p.critOver > 0 ? ` (초과 +${pc(p.critOver)}→크뎀)` : '')], ['크리 데미지', pc(p.cdmg)], ['메소 획득', '+' + pc(p.meso-1)], ['경험치 획득', '+' + pc(p.exp-1)],
       ['받는 피해', '-' + pc(p.red)], ['HP 회복/초', pc(p.regen)],
       ['내 DPS', fmt(D.me)], ['동료 DPS', fmt(D.mate) + ' (' + Math.round(D.mate/D.total*100) + '%)'], ['펫 DPS', fmt(D.pet)], ['총 DPS', fmt(D.total)]];
     h += '<div class="sg">' + rows.map(r => `<div><span>${r[0]}</span><b>${r[1]}</b></div>`).join('') + '</div><hr>';

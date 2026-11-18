@@ -261,3 +261,16 @@ setInterval(renderTab, 1000);
 setInterval(renderMaps, 2000);
 setInterval(save, 10000);
 addEventListener('beforeunload', save);
+
+// 위장 모드: 흑백 축소 화면 + Esc 비상 화면
+const TITLE = document.title;
+function setStealth(on){
+  document.body.classList.toggle('stealth', on);
+  document.title = on ? '문서1 - 편집기' : TITLE;
+  $('stealth').textContent = on ? '일반 모드' : '위장 모드';
+  try { localStorage.setItem('mapleStealth', on ? '1' : ''); } catch(e){}
+}
+$('stealth').onclick = () => setStealth(!document.body.classList.contains('stealth'));
+addEventListener('keydown', e => { if (e.key === 'Escape') $('cover').hidden = !$('cover').hidden; });
+document.addEventListener('visibilitychange', () => { if (document.hidden) $('cover').hidden = false; });
+try { if (localStorage.getItem('mapleStealth')) setStealth(true); } catch(e){}

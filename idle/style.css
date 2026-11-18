@@ -33,3 +33,14 @@ footer{font-size:12px;opacity:.8}
 #stages{display:flex;gap:3px;margin-top:6px}#stages button{flex:1;padding:4px 0;font-size:12px}#stages .cur{background:var(--accent);color:#fff}
 hr{border:0;border-top:1px solid var(--line);margin:8px 0}
 .rates{width:100%;text-align:center;font-size:12px;margin:6px 0;border-collapse:collapse}
+
+body.stealth{filter:grayscale(1)}
+body.stealth #field,body.stealth #maps,body.stealth header div:first-child b{display:none}
+body.stealth #app{max-width:420px;font-size:12px;opacity:.85}
+body.stealth section{border-radius:0;padding:6px}
+body.stealth button{border-radius:0;padding:3px 6px;font-size:12px}
+#cover{position:fixed;inset:0;background:#fff;color:#222;z-index:99;overflow:auto;font-family:'맑은 고딕',system-ui,sans-serif}
+#cover[hidden]{display:none}
+.cbar{background:#2b579a;color:#fff;padding:6px 12px;font-size:13px}
+.cpage{max-width:700px;margin:20px auto;padding:0 20px;line-height:1.7}
+.cpage table{border-collapse:collapse;width:100%}.cpage td,.cpage th{border:1px solid #bbb;padding:4px 8px;text-align:left}

@@ -18,7 +18,13 @@ const GEAR = [
   {k:'hat',    name:'모자', e:'🎩', stat:'HP',     per:60},
   {k:'armor',  name:'갑옷', e:'🛡️', stat:'방어력', per:6},
   {k:'shoes',  name:'신발', e:'👟', stat:'공속%',  per:2},
+  {k:'gloves', name:'장갑', e:'🧤', stat:'크리율%', per:.2},
+  {k:'cape',   name:'망토', e:'🧥', stat:'피해감소%', per:.3},
+  {k:'ring',   name:'반지', e:'💍', stat:'크뎀%',  per:1},
+  {k:'neck',   name:'목걸이', e:'📿', stat:'메소·경험치%', per:1},
 ];
+// % 단위 부위: 등급별 수치표와 표기
+const PCT = {shoes:'공속 +', gloves:'크리율 +', cape:'받는 피해 -', ring:'크리 데미지 +', neck:'메소·경험치 +'};
 const RARITY = [
   {n:'일반',     c:'#9aa0a6', rate:55, mul:1},
   {n:'레어',     c:'#3b9cff', rate:28, mul:2.5},
@@ -30,7 +36,11 @@ const ITEM = {
   weapon:{base:70,  names:['목검','강철 검','미스릴 대검','엑스칼리버','검은 마법사의 지팡이']},
   hat:   {base:350, names:['털모자','철 투구','마법사 모자','용기사 투구','핑크빈 왕관']},
   armor: {base:35,  names:['천 옷','가죽 갑옷','미스릴 갑옷','용린 갑옷','시간의 갑주']},
-  shoes: {base:2,   names:['고무 신발','가죽 부츠','바람의 신발','천둥 부츠','시공의 신발']},
+  shoes: {tbl:[2,4,8,14,22],   names:['고무 신발','가죽 부츠','바람의 신발','천둥 부츠','시공의 신발']},
+  gloves:{tbl:[1,2,4,7,12],    names:['면장갑','가죽 장갑','강철 건틀릿','용의 발톱','신의 손길']},
+  cape:  {tbl:[2,4,7,11,16],   names:['낡은 망토','가죽 망토','마법사의 망토','불사조 망토','시간의 망토']},
+  ring:  {tbl:[5,10,20,35,60], names:['구리 반지','은 반지','루비 반지','용의 눈 반지','영원의 반지']},
+  neck:  {tbl:[5,10,20,35,60], names:['나무 목걸이','진주 목걸이','사파이어 목걸이','영웅의 목걸이','세계수의 눈물']},
 };
 // 동료: 가챠로 획득, 중복은 조각으로 성장 (dps 공격 / tank 받는 피해 감소 / heal HP 회복 / buff 공격력·경험치·메소)
 const MATES = {
@@ -141,7 +151,7 @@ const STATS = [
 ];
 
 const fresh = () => ({lv:1,exp:0,meso:0,gem:0,map:0,kills:0,stat:{atk:0,hp:0,crit:0,cdmg:0,meso:0},
-  gear:{weapon:0,hat:0,armor:0,shoes:0},best:0,last:Date.now(),stage:1,clear:{},daily:{},ach:{},tk:0,week:{},mine:{lv:0,t:0},ex:{d:'',n:0},job:[],pets:{},mates:{},party:[null,null,null],mpity:0,mpulls:0,lastMate:[],petEq:[null,null],ppity:0,ppulls:0,lastEgg:[],items:{},equip:{weapon:null,hat:null,armor:null,shoes:null},pity:0,pity10:0,pulls:0,lastPull:[]});
+  gear:{weapon:0,hat:0,armor:0,shoes:0,gloves:0,cape:0,ring:0,neck:0},best:0,last:Date.now(),stage:1,clear:{},daily:{},ach:{},tk:0,week:{},mine:{lv:0,t:0},ex:{d:'',n:0},job:[],pets:{},mates:{},party:[null,null,null],mpity:0,mpulls:0,lastMate:[],petEq:[null,null],ppity:0,ppulls:0,lastEgg:[],items:{},equip:{weapon:null,hat:null,armor:null,shoes:null,gloves:null,cape:null,ring:null,neck:null},pity:0,pity10:0,pulls:0,lastPull:[]});
 let S = fresh();
 try { const raw = localStorage.getItem('mapleIdle'); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch(e){}
 if (Array.isArray(S.inv) || Object.values(S.equip||{}).some(v => v && typeof v === 'object')) {   // 구버전 장비 변환
@@ -154,21 +164,22 @@ if (Array.isArray(S.inv) || Object.values(S.equip||{}).some(v => v && typeof v =
     if (ks.length) S.equip[sl] = ks[0];
   }
 }
+GEAR.forEach(g => { if (S.gear[g.k] == null) S.gear[g.k] = 0; if (!(g.k in S.equip)) S.equip[g.k] = null; });
 for (const id of Object.keys(S.mates)) { if (!MATES[id]) delete S.mates[id]; else { S.mates[id].lv = Math.min(MATEMAX, S.mates[id].lv||1); S.mates[id].sh = S.mates[id].sh||0; } }
 S.party = S.party.map(id => S.mates[id] ? id : null);
 
 const need = lv => Math.floor(20 * Math.pow(lv, 2.1) * 1.05);
 const P = () => {
-  const J = jm(), B = pb(), M = mt(), H = hold(), E = S.equip, ep = k => (E[k] ? kindPow(E[k]) : 0) + H[k];
+  const J = jm(), B = pb(), M = mt(), H = hold(), E = S.equip, ep = k => (E[k] ? kindPow(E[k]) : 0) + H[k], pg = k => (ep(k) + S.gear[k]*GEAR.find(g=>g.k===k).per) / 100;
   const atk = (10 + S.lv*3 + S.stat.atk*5 + S.gear.weapon*12 + ep('weapon')) * J.atk * B.atk * M.atk;
   return {
     atk,
     hp: (100 + S.lv*20 + S.stat.hp*40 + S.gear.hat*60 + ep('hat')) * J.hp * B.hp,
     def: (S.gear.armor*6 + S.lv + ep('armor')) * J.def,
-    crit: Math.min(.8, .05 + S.stat.crit*.005 + J.crit + B.crit),
-    cdmg: 1.5 + S.stat.cdmg*.02 + J.cdmg,
+    crit: Math.min(.8, .05 + S.stat.crit*.005 + J.crit + B.crit + pg('gloves')),
+    cdmg: 1.5 + S.stat.cdmg*.02 + J.cdmg + pg('ring'),
     spd: (1 + (S.gear.shoes*2 + ep('shoes'))/100) * J.spd * B.spd,
-    meso: (1 + S.stat.meso*.03) * J.meso * B.meso * M.meso, exp: B.exp * M.exp, red: M.red,
+    meso: (1 + S.stat.meso*.03) * J.meso * B.meso * M.meso * (1 + pg('neck')), exp: B.exp * M.exp * (1 + pg('neck')), red: Math.min(.7, M.red + pg('cape')),
     skill: J.skill, regen: J.regen + M.regen,
   };
 };
@@ -277,10 +288,10 @@ function say(t){ $('msg').textContent = t; clearTimeout(say.t); say.t = setTimeo
 function save(){ S.last = Date.now(); try{ localStorage.setItem('mapleIdle', JSON.stringify(S)); }catch(e){} }
 
 // 장비 종류 = 부위:등급. 중복은 개수로 쌓이고, 5개마다 1성 승급
-const STARMAX = 5, STARUP = 5, STARBONUS = .5, SHOESPD = [2,4,8,14,22];
+const STARMAX = 5, STARUP = 5, STARBONUS = .5;
 const kslot = k => k.split(':')[0], kr = k => +k.split(':')[1];
 const starOf = k => S.items[k] ? S.items[k].star : 0;
-const kindPow = k => Math.round((kslot(k) === 'shoes' ? SHOESPD[kr(k)] : ITEM[kslot(k)].base * RARITY[kr(k)].mul) * (1 + STARBONUS*starOf(k)));
+const kindPow = k => Math.round((ITEM[kslot(k)].tbl ? ITEM[kslot(k)].tbl[kr(k)] : ITEM[kslot(k)].base * RARITY[kr(k)].mul) * (1 + STARBONUS*starOf(k)));
 const kindName = k => ITEM[kslot(k)].names[kr(k)];
 // gacha
 function roll(minR){
@@ -295,7 +306,7 @@ function pullOne(minR){
   else if (S.pity10 >= 10 && r < 2) r = 2;
   if (r >= 4) S.pity = 0;
   if (r >= 2) S.pity10 = 0;
-  const slot = GEAR[Math.floor(Math.random()*4)].k, key = slot + ':' + r;
+  const slot = GEAR[Math.floor(Math.random()*GEAR.length)].k, key = slot + ':' + r;
   const isNew = !S.items[key];
   if (isNew) S.items[key] = {n:0, star:0};
   S.items[key].n++;
@@ -311,10 +322,10 @@ function pull(n){
   for (let i = 0; i < n; i++) S.lastPull.push(pullOne(n === 10 && i === 9 ? 1 : 0));
   renderTab();
 }
-const statTxt = k => kslot(k) === 'shoes' ? `공속 +${kindPow(k)}%` : `${GEAR.find(g=>g.k===kslot(k)).stat} +${fmt(kindPow(k))}`;
+const statTxt = k => PCT[kslot(k)] ? `${PCT[kslot(k)]}${kindPow(k)}%` : `${GEAR.find(g=>g.k===kslot(k)).stat} +${fmt(kindPow(k))}`;
 const HOLD = .35, PETHOLD = .7;
-function hold(){ const o = {weapon:0,hat:0,armor:0,shoes:0}; Object.keys(S.items).forEach(k => { if (S.equip[kslot(k)] !== k) o[kslot(k)] += kindPow(k)*HOLD; }); return o; }
-const holdTxt = H => `공격력 +${fmt(H.weapon)} · HP +${fmt(H.hat)} · 방어 +${fmt(H.armor)} · 공속 +${H.shoes.toFixed(1)}%`;
+function hold(){ const o = {weapon:0,hat:0,armor:0,shoes:0,gloves:0,cape:0,ring:0,neck:0}; Object.keys(S.items).forEach(k => { if (S.equip[kslot(k)] !== k) o[kslot(k)] += kindPow(k)*HOLD; }); return o; }
+const holdTxt = H => `공격력 +${fmt(H.weapon)} · HP +${fmt(H.hat)} · 방어 +${fmt(H.armor)} · 공속 +${H.shoes.toFixed(1)}% · 크리율 +${H.gloves.toFixed(1)}% · 피해 -${H.cape.toFixed(1)}% · 크뎀 +${H.ring.toFixed(1)}% · 메소·경험치 +${H.neck.toFixed(1)}%`;
 const itemHtml = k => `<span style="color:${RARITY[kr(k)].c};font-weight:700">[${RARITY[kr(k)].n}] ${kindName(k)}${starOf(k) ? ' ' + '★'.repeat(starOf(k)) : ''}</span> <small>${statTxt(k)}</small>`;
 
 // DPS 추정 (내 공격 + 스킬 / 동료 / 펫)
@@ -448,7 +459,7 @@ function renderTab(){
     const keys = Object.keys(S.items).sort((a,b)=>GEAR.findIndex(g=>g.k===kslot(a))-GEAR.findIndex(g=>g.k===kslot(b)) || kr(b)-kr(a));
     h += `<hr><div class="row"><div><b>보유 장비 (${keys.length}종)</b><small>같은 장비 ${STARUP}개를 모으면 1성 승급 (최대 ${STARMAX}성, 성당 능력치 +${STARBONUS*100}%)</small></div></div>`;
     keys.forEach(k => { const it = S.items[k], eq = S.equip[kslot(k)] === k, up = it.n >= STARUP && it.star < STARMAX;
-      h += `<div class="row"><div>${GEAR.find(g=>g.k===kslot(k)).e} ${itemHtml(k)}<small>보유 ${it.n}/${it.star < STARMAX ? STARUP : 'MAX'}${eq ? ' · 장착 중' : ' · 보유효과 ' + (kslot(k)==='shoes' ? '+' + (kindPow(k)*HOLD).toFixed(1) + '%' : '+' + fmt(kindPow(k)*HOLD))}</small></div>
+      h += `<div class="row"><div>${GEAR.find(g=>g.k===kslot(k)).e} ${itemHtml(k)}<small>보유 ${it.n}/${it.star < STARMAX ? STARUP : 'MAX'}${eq ? ' · 장착 중' : ' · 보유효과 ' + (PCT[kslot(k)] ? '+' + (kindPow(k)*HOLD).toFixed(1) + '%' : '+' + fmt(kindPow(k)*HOLD))}</small></div>
         <span><button data-star="${k}" ${up?'':'disabled'}>승급</button> <button data-eq="${k}" ${eq?'disabled':''}>장착</button></span></div>`; });
   } else if (tab === 'reward') {
     chkDaily();

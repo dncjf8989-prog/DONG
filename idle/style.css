@@ -30,3 +30,6 @@ button:disabled{opacity:.4;cursor:default}
 .row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);gap:8px}
 .row small{opacity:.7;display:block}
 footer{font-size:12px;opacity:.8}
+#stages{display:flex;gap:3px;margin-top:6px}#stages button{flex:1;padding:4px 0;font-size:12px}#stages .cur{background:var(--accent);color:#fff}
+hr{border:0;border-top:1px solid var(--line);margin:8px 0}
+.rates{width:100%;text-align:center;font-size:12px;margin:6px 0;border-collapse:collapse}

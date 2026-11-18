@@ -50,7 +50,7 @@ const mateMul = id => 1 + .2*(mateLv(id)-1);
 const mateOwned = () => Object.keys(S.mates).length;
 function mt(){
   const o = {atk:1,exp:1,meso:1,regen:0,red:0}, n = mateOwned();
-  o.atk += .04*n; o.meso += .05*n;   // 도감 보너스
+  o.atk += .08*n; o.meso += .10*n;   // 도감 보너스
   Object.keys(S.mates).forEach(id => { const b = MATES[id].b || {}, f = S.party.includes(id) ? 1 : PETHOLD;
     for (const k in b) { const v = b[k]*mateMul(id)*f; if (k === 'red') o.red += v; else if (k === 'regen') o.regen += v; else o[k] += v; } });
   o.red = Math.min(.5, o.red);
@@ -79,7 +79,7 @@ const petOwned = () => Object.keys(S.pets).length;
 function pb(){
   const o = {atk:1,hp:1,meso:1,exp:1,crit:0,spd:1}, n = petOwned();
   // 도감 보너스: 보유 종류당 공격력 +3%, 경험치 +2%
-  o.atk += .03*n; o.exp += .02*n;
+  o.atk += .08*n; o.exp += .06*n;
   Object.keys(S.pets).forEach(id => {
     const f = S.petEq.includes(id) ? 1 : PETHOLD;   // 장착 100% / 보유만 30%
     for (const k in PETS[id].b) { const v = PETS[id].b[k]*petMul(id)*f; if (k === 'crit') o.crit += v; else o[k] += v; } });
@@ -295,7 +295,7 @@ function pull(n){
   renderTab();
 }
 const statTxt = k => kslot(k) === 'shoes' ? `공속 +${kindPow(k)}%` : `${GEAR.find(g=>g.k===kslot(k)).stat} +${fmt(kindPow(k))}`;
-const HOLD = .35, PETHOLD = .3;
+const HOLD = .35, PETHOLD = .7;
 function hold(){ const o = {weapon:0,hat:0,armor:0,shoes:0}; Object.keys(S.items).forEach(k => { if (S.equip[kslot(k)] !== k) o[kslot(k)] += kindPow(k)*HOLD; }); return o; }
 const holdTxt = H => `공격력 +${fmt(H.weapon)} · HP +${fmt(H.hat)} · 방어 +${fmt(H.armor)} · 공속 +${H.shoes.toFixed(1)}%`;
 const itemHtml = k => `<span style="color:${RARITY[kr(k)].c};font-weight:700">[${RARITY[kr(k)].n}] ${kindName(k)}${starOf(k) ? ' ' + '★'.repeat(starOf(k)) : ''}</span> <small>${statTxt(k)}</small>`;
@@ -441,7 +441,7 @@ function renderTab(){
     for (let i = 0; i < PARTY; i++) { const id = S.party[i];
       h += `<div class="row"><div>${id ? MATES[id].e + ' <b style="color:'+RARITY[MATES[id].r].c+'">' + MATES[id].n + ' Lv.' + mateLv(id) + '</b><small>' + MATES[id].role + ' · ' + mateTxt(id) + '</small>' : '<small>빈 칸</small>'}</div>${id ? `<button data-mu="${i}">해제</button>` : ''}</div>`; }
     { const D = dpsInfo(); h += `<div class="row"><div><b>파티 DPS ${fmt(D.mate)}</b><small>전체 DPS ${fmt(D.total)} 중 ${Math.round(D.mate/D.total*100)}%</small></div></div>`; }
-    h += `<small>보유효과: 파티에 넣지 않은 동료도 능력치의 ${PETHOLD*100}%가 적용됩니다.<br>도감 ${mateOwned()}/${Object.keys(MATES).length}명 → 공격력 +${mateOwned()*4}% · 메소 +${mateOwned()*5}%</small><hr>`;
+    h += `<small>보유효과: 파티에 넣지 않은 동료도 능력치의 ${PETHOLD*100}%가 적용됩니다.<br>도감 ${mateOwned()}/${Object.keys(MATES).length}명 → 공격력 +${mateOwned()*8}% · 메소 +${mateOwned()*10}%</small><hr>`;
     h += `<div class="row"><div><b>동료 소환</b><small>천장 ${S.mpity}/80 (레전더리 보장) · 총 ${S.mpulls}회</small></div></div>`;
     h += '<table class="rates"><tr>' + RARITY.map((r,i)=>{ const n = Object.values(MATES).filter(p=>p.r===i).length; return `<td style="color:${r.c}"><b>${r.n}</b><br>${r.rate}%<br><small>명당 ${(r.rate/n).toFixed(1)}%</small></td>`; }).join('') + '</tr></table>';
     h += `<div class="row"><button id="m1" ${S.gem<MATE1?'disabled':''}>1회 💎${MATE1}</button><button id="m10" ${S.gem<MATE10?'disabled':''}>10회 💎${MATE10} (레어↑ 1명 보장)</button></div>`;
@@ -456,7 +456,7 @@ function renderTab(){
     h += `<div class="row"><div><b>장착 중 (${PETSLOT}칸)</b></div><div>💎 ${S.gem}</div></div>`;
     for (let i = 0; i < PETSLOT; i++) { const id = S.petEq[i];
       h += `<div class="row"><div>${id ? PETS[id].e + ' <b style="color:'+RARITY[PETS[id].r].c+'">'+PETS[id].n+' Lv.'+petLv(id)+'</b><small>'+petTxt(id)+' · 2초마다 자동 공격</small>' : '<small>빈 칸</small>'}</div>${id ? `<button data-un="${i}">해제</button>` : ''}</div>`; }
-    h += `<small>보유효과: 장착하지 않은 펫도 능력치의 ${PETHOLD*100}%가 적용됩니다.<br>도감 ${petOwned()}/${Object.keys(PETS).length}종 → 공격력 +${petOwned()*3}% · 경험치 +${petOwned()*2}%</small>`;
+    h += `<small>보유효과: 장착하지 않은 펫도 능력치의 ${PETHOLD*100}%가 적용됩니다.<br>도감 ${petOwned()}/${Object.keys(PETS).length}종 → 공격력 +${petOwned()*8}% · 경험치 +${petOwned()*6}%</small>`;
     h += '<hr>';
     h += `<div class="row"><div><b>펫 알 뽑기</b><small>천장 ${S.ppity}/80 (레전더리 보장) · 총 ${S.ppulls}회</small></div></div>`;
     h += '<table class="rates"><tr>' + RARITY.map((r,i)=>{ const n = Object.values(PETS).filter(p=>p.r===i).length; return `<td style="color:${r.c}"><b>${r.n}</b><br>${r.rate}%<br><small>종당 ${(r.rate/n).toFixed(1)}%</small></td>`; }).join('') + '</tr></table>';

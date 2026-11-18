@@ -125,7 +125,7 @@ const STATS = [
 ];
 
 const fresh = () => ({lv:1,exp:0,meso:0,gem:0,map:0,kills:0,stat:{atk:0,hp:0,crit:0,cdmg:0,meso:0},
-  gear:{weapon:0,hat:0,armor:0,shoes:0},best:0,last:Date.now(),stage:1,clear:{},daily:{},ach:{},tk:0,job:[],pets:{},mates:{},party:[null,null,null],mpity:0,mpulls:0,lastMate:[],petEq:[null,null],ppity:0,ppulls:0,lastEgg:[],items:{},equip:{weapon:null,hat:null,armor:null,shoes:null},pity:0,pity10:0,pulls:0,lastPull:[]});
+  gear:{weapon:0,hat:0,armor:0,shoes:0},best:0,last:Date.now(),stage:1,clear:{},daily:{},ach:{},tk:0,week:{},mine:{lv:0,t:0},ex:{d:'',n:0},job:[],pets:{},mates:{},party:[null,null,null],mpity:0,mpulls:0,lastMate:[],petEq:[null,null],ppity:0,ppulls:0,lastEgg:[],items:{},equip:{weapon:null,hat:null,armor:null,shoes:null},pity:0,pity10:0,pulls:0,lastPull:[]});
 let S = fresh();
 try { const raw = localStorage.getItem('mapleIdle'); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch(e){}
 if (Array.isArray(S.inv) || Object.values(S.equip||{}).some(v => v && typeof v === 'object')) {   // 구버전 장비 변환
@@ -186,7 +186,8 @@ function gain(exp, meso){
 }
 function kill(){
   chkDaily(); const m = mon(); gain(m.exp, m.meso); S.kills++; S.tk++;
-  if (isBoss) S.daily.boss++; else { S.daily.kills++;
+  if (isBoss) { S.daily.boss++; S.week.boss++; } else { S.daily.kills++; S.week.kills++;
+    if (S.tk % 300 === 0) { const g = 5 + S.map*2 + S.stage; S.gem += g; say(`🎁 보석 상자! 💎+${g}`); }
     if (Math.random() < .02) { const g = 1 + (S.map >> 1) + (S.stage >> 1); S.gem += g; float('💎+' + g, true, 'm'); } }
   if (isBoss) {
     const g = bossGem(S.map, S.stage); S.gem += g; isBoss = false; S.best = Math.max(S.best, S.map);
@@ -349,7 +350,25 @@ function eggs(n){
 }
 // 보석 수급: 출석 / 일일 퀘스트 / 업적 / 드롭 / 방치
 const today = () => new Date().toLocaleDateString('sv');
-function chkDaily(){ if (S.daily.d !== today()) S.daily = {d:today(), kills:0, boss:0, enh:0, claim:{}}; }
+const weekKey = () => { const d = new Date(); d.setDate(d.getDate() - (d.getDay()+6)%7); return d.toLocaleDateString('sv'); };
+function chkDaily(){
+  if (S.daily.d !== today()) S.daily = {d:today(), kills:0, boss:0, enh:0, claim:{}};
+  if (S.week.d !== weekKey()) S.week = {d:weekKey(), kills:0, boss:0, enh:0, claim:{}};
+  if (S.ex.d !== today()) S.ex = {d:today(), n:0};
+}
+const WQ = [
+  {id:'kills', name:'몬스터 3,000마리 처치', goal:3000, gem:40},
+  {id:'boss',  name:'보스 40회 처치',        goal:40,   gem:50},
+  {id:'enh',   name:'장비 강화 100회 시도',  goal:100,  gem:30},
+];
+// 보석 광산: 메소로 확장, 자리를 비운 동안에도 생산 (최대 8시간 보관)
+const MINEMAX = 25, MINECAP = 8*3600;
+const mineRate = () => S.mine.lv * .8;   // 시간당 💎
+const minePending = () => S.mine.lv ? Math.floor(Math.min(MINECAP, (Date.now() - S.mine.t)/1000) * mineRate() / 3600) : 0;
+const mineCost = () => Math.floor(20000 * Math.pow(1.45, S.mine.lv));
+// 메소→보석 교환소 (하루 10회, 살수록 가격 상승)
+const EXMAX = 10;
+const exPrice = () => Math.floor((2000 + S.lv*300) * Math.pow(1.2, S.ex.n));
 const DQ = [
   {id:'kills', name:'몬스터 200마리 처치', goal:200, gem:10},
   {id:'boss',  name:'보스 5회 처치',       goal:5,   gem:15},
@@ -365,6 +384,8 @@ const ACH = [];
 [[1,10],[5,30],[15,80]].forEach(([g,v]) => ACH.push({id:'st'+g, name:`장비 승급 ${g}회`, goal:g, gem:v, cur:()=>Object.values(S.items).reduce((a,b)=>a+b.star,0)}));
 const claimable = () => { chkDaily(); let n = S.daily.login ? 0 : 1;
   DQ.forEach(q => { if (S.daily[q.id] >= q.goal && !S.daily.claim[q.id]) n++; });
+  WQ.forEach(q => { if (S.week[q.id] >= q.goal && !S.week.claim[q.id]) n++; });
+  if (minePending() >= 1) n++;
   ACH.forEach(a => { if (a.cur() >= a.goal && !S.ach[a.id]) n++; }); return n; };
 // UI
 let tab = 'stats';
@@ -416,11 +437,22 @@ function renderTab(){
   } else if (tab === 'reward') {
     chkDaily();
     h += `<div class="row"><b>💎 보석 얻는 법</b><div>💎 ${S.gem}</div></div>`;
-    h += `<small>· 보스 처치 (스테이지가 높을수록 크게 ↑, 첫 클리어 2배)<br>· 일반 몬스터 처치 시 2% 확률 드롭 (사냥터·스테이지가 높을수록 ↑)<br>· 자리 비운 10분마다 💎1 (최대 8시간)<br>· 아래 출석 · 일일 퀘스트 · 업적</small><hr>`;
+    h += `<small>· 보스 처치 (스테이지가 높을수록 크게 ↑, 첫 클리어 2배)<br>· 일반 몬스터 처치 시 2% 드롭 / 300마리마다 🎁 보석 상자<br>· 보석 광산 · 메소 교환소 (반복) · 출석 · 일일/주간 퀘스트 · 업적<br>· 자리 비운 10분마다 💎1 (최대 8시간)</small><hr>`;
+    // 보석 광산
+    const pend = minePending(), mc = mineCost();
+    h += `<div class="row"><div><b>⛏️ 보석 광산 Lv.${S.mine.lv}/${MINEMAX}</b><small>시간당 💎${mineRate().toFixed(1)} · 쌓인 보석 💎${pend} (최대 ${(mineRate()*8).toFixed(0)})</small></div>
+      <span><button data-mine="claim" ${pend>=1?'':'disabled'}>수령 💎${pend}</button> <button data-mine="up" ${S.mine.lv>=MINEMAX||S.meso<mc?'disabled':''}>${S.mine.lv>=MINEMAX?'MAX':'확장 💰'+fmt(mc)}</button></span></div>`;
+    // 교환소
+    h += `<div class="row"><div><b>💱 메소 교환소</b><small>💎1 = 💰${fmt(exPrice())} · 오늘 ${S.ex.n}/${EXMAX}</small></div><button data-mine="ex" ${S.ex.n>=EXMAX||S.meso<exPrice()?'disabled':''}>교환</button></div>`;
+    h += `<small>🎁 다음 보석 상자까지 ${300 - S.tk % 300}마리</small><hr>`;
     h += `<div class="row"><div><b>출석 보상</b><small>하루 한 번 💎20</small></div><button data-claim="login" ${S.daily.login?'disabled':''}>${S.daily.login?'완료':'받기 💎20'}</button></div>`;
     h += '<hr><b>일일 퀘스트</b>';
+
     DQ.forEach(q => { const c = Math.min(S.daily[q.id]||0, q.goal), done = c >= q.goal, got = S.daily.claim[q.id];
       h += `<div class="row"><div>${q.name}<small>${c}/${q.goal}</small></div><button data-claim="q:${q.id}" ${done && !got ? '' : 'disabled'}>${got ? '완료' : '💎' + q.gem}</button></div>`; });
+    h += '<hr><b>주간 퀘스트</b> <small>(월요일 초기화)</small>';
+    WQ.forEach(q => { const c = Math.min(S.week[q.id]||0, q.goal), done = c >= q.goal, got = S.week.claim[q.id];
+      h += `<div class="row"><div>${q.name}<small>${fmt(c)}/${fmt(q.goal)}</small></div><button data-claim="w:${q.id}" ${done && !got ? '' : 'disabled'}>${got ? '완료' : '💎' + q.gem}</button></div>`; });
     h += '<hr><b>업적</b>';
     ACH.slice().sort((a,b)=>(S.ach[a.id]?1:0)-(S.ach[b.id]?1:0)).forEach(a => { const c = Math.min(a.cur(), a.goal), done = c >= a.goal, got = S.ach[a.id];
       h += `<div class="row" style="${got?'opacity:.5':''}"><div>${a.name}<small>${fmt(c)}/${fmt(a.goal)}</small></div><button data-claim="a:${a.id}" ${done && !got ? '' : 'disabled'}>${got ? '완료' : '💎' + a.gem}</button></div>`; });
@@ -485,14 +517,20 @@ function renderTab(){
   });
   el.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
     const k = b.dataset.g, c = gearCost(k);
-    if (S.meso < c) return; S.meso -= c; chkDaily(); S.daily.enh++;
+    if (S.meso < c) return; S.meso -= c; chkDaily(); S.daily.enh++; S.week.enh++;
     if (Math.random() < gearRate(k)) { S.gear[k]++; say('강화 성공!'); } else say('강화 실패...');
     renderTab();
   });
   el.querySelectorAll('[data-eq]').forEach(b => b.onclick = () => { const k = b.dataset.eq; S.equip[kslot(k)] = k; renderTab(); });
+  el.querySelectorAll('[data-mine]').forEach(b => b.onclick = () => { chkDaily(); const t = b.dataset.mine;
+    if (t === 'claim') { const g = minePending(); if (g >= 1) { S.gem += g; S.mine.t = Date.now(); say('광산 수령 💎+' + g); } }
+    else if (t === 'up') { const c = mineCost(); if (S.mine.lv < MINEMAX && S.meso >= c) { if (S.mine.lv === 0) S.mine.t = Date.now(); else { const g = minePending(); S.gem += g; S.mine.t = Date.now(); } S.meso -= c; S.mine.lv++; } }
+    else if (t === 'ex') { const c = exPrice(); if (S.ex.n < EXMAX && S.meso >= c) { S.meso -= c; S.ex.n++; S.gem++; } }
+    renderTab(); });
   el.querySelectorAll('[data-claim]').forEach(b => b.onclick = () => { const [t, id] = b.dataset.claim.split(':'); chkDaily();
     if (t === 'login' && !S.daily.login) { S.daily.login = true; S.gem += 20; }
     else if (t === 'q') { const q = DQ.find(x=>x.id===id); if (S.daily[id] >= q.goal && !S.daily.claim[id]) { S.daily.claim[id] = true; S.gem += q.gem; } }
+    else if (t === 'w') { const q = WQ.find(x=>x.id===id); if (S.week[id] >= q.goal && !S.week.claim[id]) { S.week.claim[id] = true; S.gem += q.gem; } }
     else if (t === 'a') { const a = ACH.find(x=>x.id===id); if (a.cur() >= a.goal && !S.ach[id]) { S.ach[id] = true; S.gem += a.gem; } }
     renderTab(); });
   el.querySelectorAll('[data-star]').forEach(b => b.onclick = () => { const it = S.items[b.dataset.star];

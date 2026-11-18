@@ -62,7 +62,7 @@ const MATES = {
   nero: {n:'네로',   e:'🌑', r:4, role:'암흑기사', cd:2.5,m:18,  b:{atk:.35,red:.12}},
 };
 const MATEBT = {red:'받는 피해 -',regen:'HP 회복/초 +',atk:'공격력 +',exp:'경험치 +',meso:'메소 +'};
-const MATEMAX = 20, PARTY = 3, MATE1 = 10, MATE10 = 90, MATE100 = 800;
+const MATEMAX = 20, PARTY = 3, MATE1 = 10, MATE10 = 90, MATE100 = 800, MATE1000 = 7600;
 const mateLv = id => S.mates[id] ? S.mates[id].lv : 0;
 const mateMul = id => 1 + .2*(mateLv(id)-1);
 const mateOwned = () => Object.keys(S.mates).length;
@@ -97,7 +97,7 @@ const PETS = {
   phoenix:{n:'불사조',   e:'🦅', r:4, b:{atk:.40,hp:.30,crit:.05}},
 };
 const PETBT = {atk:'공격력',hp:'HP',meso:'메소',exp:'경험치',crit:'크리율',spd:'공속'};
-const PET1 = 10, PET10 = 90, PET100 = 800, PETMAX = 20, PETSLOT = 2;
+const PET1 = 10, PET10 = 90, PET100 = 800, PET1000 = 7600, PETMAX = 20, PETSLOT = 2;
 const petLv = id => S.pets[id] ? S.pets[id].lv : 0;
 const petMul = id => 1 + .15*(petLv(id)-1);
 const petTxt = (id, f=1) => Object.entries(PETS[id].b).map(([k,v]) => `${PETBT[k]} +${(v*petMul(id)*f*100).toFixed(f<1?1:0).replace(/\.0$/,'')}%`).join(' · ');
@@ -166,7 +166,7 @@ function jm(){
   return o;
 }
 const modTxt = m => Object.keys(m).map(k => ADD[k] ? `${MODTXT[k]} +${Math.round(m[k]*100)}%` : `${MODTXT[k]} ×${m[k]}`).join(' · ');
-const PULL1 = 5, PULL10 = 45, PULL100 = 400, STAGES = 10;
+const PULL1 = 5, PULL10 = 45, PULL100 = 400, PULL1000 = 3800, STAGES = 10;
 const STATS = [
   {k:'atk',  name:'공격력 단련', desc:'공격력 +5',  base:50,  g:1.09},
   {k:'hp',   name:'체력 단련',   desc:'최대 HP +40', base:40,  g:1.09},
@@ -422,7 +422,7 @@ function pullOne(minR){
   return {key, isNew, eq};
 }
 function pull(n){
-  const cost = n === 100 ? PULL100 : n === 10 ? PULL10 : PULL1;
+  const cost = n === 1000 ? PULL1000 : n === 100 ? PULL100 : n === 10 ? PULL10 : PULL1;
   if (S.gem < cost) return;
   S.gem -= cost; S.lastPull = [];
   for (let i = 0; i < n; i++) S.lastPull.push(pullOne(n >= 10 && i % 10 === 9 ? 1 : 0));
@@ -457,7 +457,7 @@ function pullMate(minR){
   return {id, isNew};
 }
 function recruit(n){
-  const cost = n === 100 ? MATE100 : n === 10 ? MATE10 : MATE1;
+  const cost = n === 1000 ? MATE1000 : n === 100 ? MATE100 : n === 10 ? MATE10 : MATE1;
   if (S.gem < cost) return;
   S.gem -= cost; S.lastMate = [];
   for (let i = 0; i < n; i++) S.lastMate.push(pullMate(n >= 10 && i % 10 === 9 ? 1 : 0));
@@ -477,7 +477,7 @@ function pullPet(minR){
   return {id, isNew};
 }
 function eggs(n){
-  const cost = n === 100 ? PET100 : n === 10 ? PET10 : PET1;
+  const cost = n === 1000 ? PET1000 : n === 100 ? PET100 : n === 10 ? PET10 : PET1;
   if (S.gem < cost) return;
   S.gem -= cost; S.lastEgg = [];
   for (let i = 0; i < n; i++) S.lastEgg.push(pullPet(n >= 10 && i % 10 === 9 ? 1 : 0));
@@ -536,18 +536,18 @@ function autoAll(){
 // 펫/동료 공용 목록 (간단히 보기: 보유한 것만 한 줄로, 미획득은 숨김)
 function colCfg(t){ return t === 'mate' ? {
     defs:MATES, own:S.mates, slots:S.party, n:PARTY, title:'파티', unit:'명', lv:mateLv, max:MATEMAX, txt:mateTxt, sub:id => MATES[id].role,
-    k:{lv:'ml', eq:'mp', un:'mu'}, ids:['m1','m10','m100'], cost:[MATE1, MATE10, MATE100], pity:S.mpity, pulls:S.mpulls, last:S.lastMate, name:'동료 소환', owned:mateOwned(),
+    k:{lv:'ml', eq:'mp', un:'mu'}, ids:['m1','m10','m100','m1000'], cost:[MATE1, MATE10, MATE100, MATE1000], pity:S.mpity, pulls:S.mpulls, last:S.lastMate, name:'동료 소환', owned:mateOwned(),
     coll:`공격력 +${mateOwned()*5}% · 메소 +${mateOwned()*8}%`, hold:'파티에 넣지 않은 동료도'
   } : {
     defs:PETS, own:S.pets, slots:S.petEq, n:PETSLOT, title:'장착', unit:'종', lv:petLv, max:PETMAX, txt:petTxt, sub:() => '',
-    k:{lv:'pl', eq:'pe', un:'un'}, ids:['e1','e10','e100'], cost:[PET1, PET10, PET100], pity:S.ppity, pulls:S.ppulls, last:S.lastEgg, name:'펫 알 뽑기', owned:petOwned(),
+    k:{lv:'pl', eq:'pe', un:'un'}, ids:['e1','e10','e100','e1000'], cost:[PET1, PET10, PET100, PET1000], pity:S.ppity, pulls:S.ppulls, last:S.lastEgg, name:'펫 알 뽑기', owned:petOwned(),
     coll:`공격력 +${petOwned()*5}% · 경험치 +${petOwned()*4}%`, hold:'장착하지 않은 펫도' }; }
 // 뽑기 결과: 10개 이하는 전부 나열, 많으면 등급별 개수 + 새로 얻은 것만 요약
 function resultHtml(list){
   if (!list.length) return '';
   if (list.length <= 10) return '<small>결과: ' + list.map(x => x.txt + (x.isNew ? '(NEW)' : '')).join(', ') + '</small>';
   const cnt = RARITY.map((_, i) => list.filter(x => x.r === i).length), fresh = list.filter(x => x.isNew);
-  return `<small>결과 ${list.length}회: ` + RARITY.map((r, i) => cnt[i] ? `<span style="color:${r.c}">${r.n} ${cnt[i]}</span>` : '').filter(Boolean).join(' · ') + (fresh.length ? `<br>NEW: ${fresh.map(x => x.txt).join(', ')}` : '') + '</small>';
+  return `<small>결과 ${list.length}회: ` + RARITY.map((r, i) => cnt[i] ? `<span style="color:${r.c}">${r.n} ${cnt[i]}</span>` : '').filter(Boolean).join(' · ') + (fresh.length ? `<br>NEW ${fresh.length}: ${fresh.slice(0, 30).map(x => x.txt).join(', ')}${fresh.length > 30 ? ' …' : ''}` : '') + '</small>';
 }
 function colHtml(t){
   const c = colCfg(t), ids = Object.keys(c.defs).sort((a,b)=>c.defs[b].r-c.defs[a].r), det = S.ui.detail;
@@ -558,7 +558,7 @@ function colHtml(t){
     h += `<div class="row c"><div>${id ? c.defs[id].e + ' <b style="color:'+RARITY[c.defs[id].r].c+'">' + c.defs[id].n + '</b> Lv.' + c.lv(id) + (det ? '<small>' + c.sub(id) + ' · ' + c.txt(id) + '</small>' : '') : '<small>빈 칸</small>'}</div>${id && !S.ui.auto ? `<button data-${c.k.un}="${i}">해제</button>` : ''}</div>`; }
   if (t === 'mate') { const D = dpsInfo(); h += `<small>파티 DPS ${fmt(D.mate)} (전체의 ${Math.round(D.mate/D.total*100)}%)</small>`; }
   h += `<small>${det ? c.hold + ' 능력치의 ' + PETHOLD*100 + '%가 적용됩니다. ' : ''}도감 보너스 ${c.coll}</small><hr>`;
-  h += `<div class="row"><div><b>${c.name}</b><small>천장 ${c.pity}/80 · 총 ${c.pulls}회</small></div><span><button id="${c.ids[0]}" ${S.gem<c.cost[0]?'disabled':''}>1회 💎${c.cost[0]}</button> <button id="${c.ids[1]}" ${S.gem<c.cost[1]?'disabled':''}>10회 💎${c.cost[1]}</button> <button id="${c.ids[2]}" ${S.gem<c.cost[2]?'disabled':''}>100회 💎${c.cost[2]}</button></span></div>`;
+  h += `<div class="row"><div><b>${c.name}</b><small>천장 ${c.pity}/80 · 총 ${c.pulls}회</small></div><span><button id="${c.ids[0]}" ${S.gem<c.cost[0]?'disabled':''}>1회 💎${c.cost[0]}</button> <button id="${c.ids[1]}" ${S.gem<c.cost[1]?'disabled':''}>10회 💎${c.cost[1]}</button> <button id="${c.ids[2]}" ${S.gem<c.cost[2]?'disabled':''}>100회 💎${c.cost[2]}</button> <button id="${c.ids[3]}" ${S.gem<c.cost[3]?'disabled':''}>1000회 💎${c.cost[3]}</button></span></div>`;
   if (det) h += '<table class="rates"><tr>' + RARITY.map((r,i)=>{ const n = ids.filter(id=>c.defs[id].r===i).length; return `<td style="color:${r.c}"><b>${r.n}</b><br>${r.rate}%<br><small>${(r.rate/n).toFixed(1)}%</small></td>`; }).join('') + '</tr></table>';
   h += resultHtml(c.last.map(x => ({r:c.defs[x.id].r, txt:`${c.defs[x.id].e}${c.defs[x.id].n}`, isNew:x.isNew})));
   h += '<hr>';
@@ -669,7 +669,7 @@ function renderTab(){
   } else if (tab === 'gacha') {
     h += `<div class="row"><div><b>장비 뽑기</b><small>천장: 10회 안에 에픽↑ 보장 · 100회 레전더리 보장 (현재 ${S.pity10}/10 · ${S.pity}/100)</small></div><div>💎 ${S.gem}</div></div>`;
     h += '<table class="rates"><tr>' + RARITY.map(r=>`<td style="color:${r.c}"><b>${r.n}</b><br>${r.rate}%</td>`).join('') + '</tr></table>';
-    h += `<div class="row"><button id="p1" ${S.gem<PULL1?'disabled':''}>1회 💎${PULL1}</button><button id="p10" ${S.gem<PULL10?'disabled':''}>10회 💎${PULL10}</button><button id="p100" ${S.gem<PULL100?'disabled':''}>100회 💎${PULL100}</button></div><small>10회마다 레어↑ 1개 보장</small>`;
+    h += `<div class="row"><button id="p1" ${S.gem<PULL1?'disabled':''}>1회 💎${PULL1}</button><button id="p10" ${S.gem<PULL10?'disabled':''}>10회 💎${PULL10}</button><button id="p100" ${S.gem<PULL100?'disabled':''}>100회 💎${PULL100}</button><button id="p1000" ${S.gem<PULL1000?'disabled':''}>1000회 💎${PULL1000}</button></div><small>10회마다 레어↑ 1개 보장</small>`;
     h += `<small>💎는 보스 처치(첫 클리어 2배)로 얻습니다. 총 ${S.pulls}회 뽑음.</small>`;
     if (S.lastPull.length > 10) h += '<hr>' + resultHtml(S.lastPull.map(x => ({r:kr(x.key), txt:kindName(x.key), isNew:x.isNew})));
     else if (S.lastPull.length) h += '<hr>' + S.lastPull.map(x => `<div class="row">${GEAR.find(g=>g.k===kslot(x.key)).e} ${itemHtml(x.key)}${x.isNew?' <b>NEW</b>':''}${x.eq?' <b>★장착</b>':''}</div>`).join('');
@@ -729,6 +729,7 @@ function renderTab(){
   if ($('p1')) $('p1').onclick = () => pull(1);
   if ($('p10')) $('p10').onclick = () => pull(10);
   if ($('p100')) $('p100').onclick = () => pull(100);
+  if ($('p1000')) $('p1000').onclick = () => pull(1000);
   el.querySelectorAll('[data-job]').forEach(b => b.onclick = () => {
     if (S.lv < JOB_LV[S.job.length]) return;
     S.job.push(b.dataset.job); skCd = 3; php = P().hp; say('전직 완료!'); renderTab(); });
@@ -740,11 +741,13 @@ function renderTab(){
   if ($('e1')) $('e1').onclick = () => eggs(1);
   if ($('e10')) $('e10').onclick = () => eggs(10);
   if ($('e100')) $('e100').onclick = () => eggs(100);
+  if ($('e1000')) $('e1000').onclick = () => eggs(1000);
   el.querySelectorAll('[data-ml]').forEach(b => b.onclick = () => { const o = S.mates[b.dataset.ml];
     if (o.sh >= o.lv && o.lv < MATEMAX) { o.sh -= o.lv; o.lv++; autoAll(); renderTab(); } });
   if ($('m1')) $('m1').onclick = () => recruit(1);
   if ($('m10')) $('m10').onclick = () => recruit(10);
   if ($('m100')) $('m100').onclick = () => recruit(100);
+  if ($('m1000')) $('m1000').onclick = () => recruit(1000);
   el.querySelectorAll('[data-mp]').forEach(b => b.onclick = () => { let sl = S.party.indexOf(null); if (sl < 0) sl = 0; S.party[sl] = b.dataset.mp; renderTab(); });
   el.querySelectorAll('[data-mu]').forEach(b => b.onclick = () => { S.party[b.dataset.mu] = null; renderTab(); });
 }

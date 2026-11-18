@@ -57,3 +57,5 @@ nav{flex-wrap:wrap}nav button{min-width:22%}
 .row.c{padding:3px 0}.row.c small{display:inline;margin-left:6px}
 
 .eg{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:4px 0}.ec{border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:13px}.ec small{display:block}
+
+.row{flex-wrap:wrap}

@@ -34,23 +34,23 @@ const ITEM = {
 };
 // 동료: 가챠로 획득, 중복은 조각으로 성장 (dps 공격 / tank 받는 피해 감소 / heal HP 회복 / buff 공격력·경험치·메소)
 const MATES = {
-  kai:  {n:'카이',   e:'🛡️', r:0, role:'탱커',     cd:3,  m:.4,  b:{red:.08}},
-  leon: {n:'레온',   e:'🏹', r:0, role:'궁수',     cd:1.5,m:.5},
-  mira: {n:'미라',   e:'🔮', r:1, role:'마법사',   cd:3,  m:1.3},
-  shado:{n:'샤도',   e:'🥷', r:1, role:'도적',     cd:2,  m:.9,  b:{meso:.10}},
-  eri:  {n:'에리',   e:'💚', r:2, role:'힐러',     b:{regen:.01,red:.05}},
-  luna: {n:'루나',   e:'🎵', r:2, role:'음유시인', b:{atk:.10,exp:.10}},
-  zeno: {n:'제노',   e:'⚙️', r:3, role:'기계공학자',cd:4,  m:3.5, b:{meso:.10}},
-  arca: {n:'아르카', e:'👑', r:4, role:'용사',     cd:2.5,m:5,   b:{atk:.15,red:.08}},
+  kai:  {n:'카이',   e:'🛡️', r:0, role:'탱커',     cd:3,  m:.8,  b:{red:.12}},
+  leon: {n:'레온',   e:'🏹', r:0, role:'궁수',     cd:1.5,m:1.2},
+  mira: {n:'미라',   e:'🔮', r:1, role:'마법사',   cd:3,  m:3},
+  shado:{n:'샤도',   e:'🥷', r:1, role:'도적',     cd:2,  m:2,   b:{meso:.20}},
+  eri:  {n:'에리',   e:'💚', r:2, role:'힐러',     b:{regen:.02,red:.10}},
+  luna: {n:'루나',   e:'🎵', r:2, role:'음유시인', b:{atk:.25,exp:.25}},
+  zeno: {n:'제노',   e:'⚙️', r:3, role:'기계공학자',cd:4,  m:9,   b:{meso:.20}},
+  arca: {n:'아르카', e:'👑', r:4, role:'용사',     cd:2.5,m:14,  b:{atk:.30,red:.10}},
 };
 const MATEBT = {red:'받는 피해 -',regen:'HP 회복/초 +',atk:'공격력 +',exp:'경험치 +',meso:'메소 +'};
 const MATEMAX = 20, PARTY = 3, MATE1 = 10, MATE10 = 90;
 const mateLv = id => S.mates[id] ? S.mates[id].lv : 0;
-const mateMul = id => 1 + .15*(mateLv(id)-1);
+const mateMul = id => 1 + .2*(mateLv(id)-1);
 const mateOwned = () => Object.keys(S.mates).length;
 function mt(){
   const o = {atk:1,exp:1,meso:1,regen:0,red:0}, n = mateOwned();
-  o.atk += .02*n; o.meso += .03*n;   // 도감 보너스
+  o.atk += .04*n; o.meso += .05*n;   // 도감 보너스
   Object.keys(S.mates).forEach(id => { const b = MATES[id].b || {}, f = S.party.includes(id) ? 1 : PETHOLD;
     for (const k in b) { const v = b[k]*mateMul(id)*f; if (k === 'red') o.red += v; else if (k === 'regen') o.regen += v; else o[k] += v; } });
   o.red = Math.min(.5, o.red);
@@ -291,6 +291,15 @@ function hold(){ const o = {weapon:0,hat:0,armor:0,shoes:0}; Object.keys(S.items
 const holdTxt = H => `공격력 +${fmt(H.weapon)} · HP +${fmt(H.hat)} · 방어 +${fmt(H.armor)} · 공속 +${H.shoes.toFixed(1)}%`;
 const itemHtml = k => `<span style="color:${RARITY[kr(k)].c};font-weight:700">[${RARITY[kr(k)].n}] ${kindName(k)}${starOf(k) ? ' ' + '★'.repeat(starOf(k)) : ''}</span> <small>${statTxt(k)}</small>`;
 
+// DPS 추정 (내 공격 + 스킬 / 동료 / 펫)
+function dpsInfo(){
+  const p = P(), root = jobNodes()[0];
+  const me = p.atk * (1 + p.crit*(p.cdmg-1)) * p.spd + (root ? p.atk*root.sk[2]*root.sk[3]*p.skill/root.sk[1] : 0);
+  let mate = 0, pet = 0;
+  S.party.forEach(id => { if (id && S.mates[id] && MATES[id].cd) mate += p.atk*MATES[id].m*mateMul(id)/MATES[id].cd; });
+  S.petEq.forEach(id => { if (id && S.pets[id]) pet += p.atk*(.15+.1*PETS[id].r)*petMul(id)/2; });
+  return {me, mate, pet, total: me+mate+pet};
+}
 // mate gacha
 function pullMate(minR){
   S.mpulls++; S.mpity++;
@@ -352,10 +361,11 @@ function renderMaps(){
 function renderTab(){
   const el = $('tab'); let h = '';
   if (tab === 'stats') {
-    const p = P(), pc = x => (x*100).toFixed(1).replace(/\.0$/,'') + '%';
+    const p = P(), D = dpsInfo(), pc = x => (x*100).toFixed(1).replace(/\.0$/,'') + '%';
     const rows = [['공격력', fmt(p.atk)], ['HP', fmt(p.hp)], ['방어', fmt(p.def)], ['공격속도', '+' + pc(p.spd-1)],
       ['크리율', pc(p.crit)], ['크리 데미지', pc(p.cdmg)], ['메소 획득', '+' + pc(p.meso-1)], ['경험치 획득', '+' + pc(p.exp-1)],
-      ['받는 피해', '-' + pc(p.red)], ['HP 회복/초', pc(p.regen)]];
+      ['받는 피해', '-' + pc(p.red)], ['HP 회복/초', pc(p.regen)],
+      ['내 DPS', fmt(D.me)], ['동료 DPS', fmt(D.mate) + ' (' + Math.round(D.mate/D.total*100) + '%)'], ['펫 DPS', fmt(D.pet)], ['총 DPS', fmt(D.total)]];
     h += '<div class="sg">' + rows.map(r => `<div><span>${r[0]}</span><b>${r[1]}</b></div>`).join('') + '</div><hr>';
     STATS.forEach(s => {
       const c = upCost(s), maxed = s.max && S.stat[s.k] >= s.max;
@@ -391,7 +401,8 @@ function renderTab(){
     h += `<div class="row"><div><b>파티 (${PARTY}칸)</b></div><div>💎 ${S.gem}</div></div>`;
     for (let i = 0; i < PARTY; i++) { const id = S.party[i];
       h += `<div class="row"><div>${id ? MATES[id].e + ' <b style="color:'+RARITY[MATES[id].r].c+'">' + MATES[id].n + ' Lv.' + mateLv(id) + '</b><small>' + MATES[id].role + ' · ' + mateTxt(id) + '</small>' : '<small>빈 칸</small>'}</div>${id ? `<button data-mu="${i}">해제</button>` : ''}</div>`; }
-    h += `<small>보유효과: 파티에 넣지 않은 동료도 능력치의 ${PETHOLD*100}%가 적용됩니다.<br>도감 ${mateOwned()}/${Object.keys(MATES).length}명 → 공격력 +${mateOwned()*2}% · 메소 +${mateOwned()*3}%</small><hr>`;
+    { const D = dpsInfo(); h += `<div class="row"><div><b>파티 DPS ${fmt(D.mate)}</b><small>전체 DPS ${fmt(D.total)} 중 ${Math.round(D.mate/D.total*100)}%</small></div></div>`; }
+    h += `<small>보유효과: 파티에 넣지 않은 동료도 능력치의 ${PETHOLD*100}%가 적용됩니다.<br>도감 ${mateOwned()}/${Object.keys(MATES).length}명 → 공격력 +${mateOwned()*4}% · 메소 +${mateOwned()*5}%</small><hr>`;
     h += `<div class="row"><div><b>동료 소환</b><small>천장 ${S.mpity}/80 (레전더리 보장) · 총 ${S.mpulls}회</small></div></div>`;
     h += '<table class="rates"><tr>' + RARITY.map((r,i)=>{ const n = Object.values(MATES).filter(p=>p.r===i).length; return `<td style="color:${r.c}"><b>${r.n}</b><br>${r.rate}%<br><small>명당 ${(r.rate/n).toFixed(1)}%</small></td>`; }).join('') + '</tr></table>';
     h += `<div class="row"><button id="m1" ${S.gem<MATE1?'disabled':''}>1회 💎${MATE1}</button><button id="m10" ${S.gem<MATE10?'disabled':''}>10회 💎${MATE10} (레어↑ 1명 보장)</button></div>`;

@@ -263,11 +263,11 @@ function skv(){
 const LVCAP = 200, EXPK = 400;   // 레벨 상한 / 맵 해금 레벨에서 1레벨당 필요한 처치 수(1스테이지 기준)
 const need = lv => Math.floor(30 * Math.pow(lv, 3.0));   // 필요 경험치: 레벨의 거듭제곱 (지수 증가 없음)
 // ---- 난이도 곡선: 맵·스테이지를 하나의 티어 T(0~79)로 보고 몬스터 능력치/보상을 계산 ----
-const TIERHP = {h0:20, g:1.30}, TIERDMG = {d0:3, g:1.17};   // 몬스터 HP / 공격력 성장률 (티어당). 플레이어 전투력이 여러 효과의 곱으로 커지므로 난이도는 곱셈 성장
+const TIERHP = {h0:20, g:1.32}, TIERDMG = {d0:3, g:1.17};   // 몬스터 HP / 공격력 성장률 (티어당). 플레이어 전투력이 여러 효과의 곱으로 커지므로 난이도는 곱셈 성장
 const lvRec = T => { const m = Math.min(MAPS.length-1, Math.floor(T/10)), s = T % 10, a = MAPS[m].lv, b = m+1 < MAPS.length ? MAPS[m+1].lv : LVCAP; return a + (b-a)*s/10; };
 const tierOf = () => S.map * 10 + S.stage - 1;
 const tierExp = T => Math.max(1, need(Math.round(lvRec(T)) + 2) / EXPK);
-const tierMeso = T => 1.7 * Math.pow(1 + T, 1.2);
+const tierMeso = T => 1.5 * (1 + T);
 const P = () => {
   const J = jm(), B = pb(), M = mt(), R = rv(), K = skv(), H = hold(), E = S.equip, ep = k => (E[k] ? kindPow(E[k]) : 0) + H[k], pg = k => (ep(k) + S.gear[k]*GEAR.find(g=>g.k===k).per) / 100;
   const critRaw = .05 + S.stat.crit*.005 + J.crit + B.crit + pg('gloves') + R.crit + SP('crit') + K.crit;
@@ -283,7 +283,7 @@ const P = () => {
     skill: J.skill * (1 + R.skill) * (1 + SP('skill')) * (1 + K.skill), rmate: 1 + R.mate, rpet: 1 + R.pet, regen: J.regen + M.regen + K.regen,
   };
 };
-const costAt = (base, lv) => Math.floor(base * Math.pow(1 + .12*lv, 2));   // 비용 = 기본 × (1 + 0.12×레벨)²
+const costAt = (base, lv) => Math.floor(base * Math.pow(1 + lv/12, 1.5));   // 비용 = 기본 × (1 + 레벨/12)^1.5 (완만한 증가)
 const upCost = (s) => costAt(s.base, S.stat[s.k]);
 // n레벨을 한 번에 올릴 때의 총 비용 (최대치 제한 포함)
 function bulkCost(s, n){ let t = 0, lv = S.stat[s.k]; for (let i = 0; i < n && !(s.max && lv >= s.max); i++, lv++) t += costAt(s.base, lv); return t; }

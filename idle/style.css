@@ -47,3 +47,6 @@ body.stealth button{border-radius:0;padding:3px 6px;font-size:12px}
 
 #petview{position:absolute;left:36%;bottom:14px;font-size:24px;letter-spacing:2px}
 nav button{padding:6px 2px;font-size:13px}
+
+#mateview{position:absolute;left:2%;bottom:14px;font-size:20px;letter-spacing:1px}
+nav{flex-wrap:wrap}nav button{min-width:22%}

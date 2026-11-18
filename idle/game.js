@@ -125,7 +125,7 @@ const STATS = [
 ];
 
 const fresh = () => ({lv:1,exp:0,meso:0,gem:0,map:0,kills:0,stat:{atk:0,hp:0,crit:0,cdmg:0,meso:0},
-  gear:{weapon:0,hat:0,armor:0,shoes:0},best:0,last:Date.now(),stage:1,clear:{},job:[],pets:{},mates:{},party:[null,null,null],mpity:0,mpulls:0,lastMate:[],petEq:[null,null],ppity:0,ppulls:0,lastEgg:[],items:{},equip:{weapon:null,hat:null,armor:null,shoes:null},pity:0,pity10:0,pulls:0,lastPull:[]});
+  gear:{weapon:0,hat:0,armor:0,shoes:0},best:0,last:Date.now(),stage:1,clear:{},daily:{},ach:{},tk:0,job:[],pets:{},mates:{},party:[null,null,null],mpity:0,mpulls:0,lastMate:[],petEq:[null,null],ppity:0,ppulls:0,lastEgg:[],items:{},equip:{weapon:null,hat:null,armor:null,shoes:null},pity:0,pity10:0,pulls:0,lastPull:[]});
 let S = fresh();
 try { const raw = localStorage.getItem('mapleIdle'); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch(e){}
 if (Array.isArray(S.inv) || Object.values(S.equip||{}).some(v => v && typeof v === 'object')) {   // 구버전 장비 변환
@@ -179,7 +179,9 @@ function gain(exp, meso){
   while (S.exp >= need(S.lv)) { S.exp -= need(S.lv); S.lv++; php = P().hp; }
 }
 function kill(){
-  const m = mon(); gain(m.exp, m.meso); S.kills++;
+  chkDaily(); const m = mon(); gain(m.exp, m.meso); S.kills++; S.tk++;
+  if (isBoss) S.daily.boss++; else { S.daily.kills++;
+    if (Math.random() < .02) { const g = 1 + (S.map >> 1); S.gem += g; float('💎+' + g, true, 'm'); } }
   if (isBoss) {
     const g = 3 + S.map*2 + S.stage; S.gem += g; isBoss = false; S.best = Math.max(S.best, S.map);
     const first = (S.clear[S.map]||0) < S.stage;
@@ -244,7 +246,8 @@ function offline(){
   const p = P(), m = MAPS[S.map];
   const dps = p.atk * (1 + p.crit*(p.cdmg-1)) * p.spd;
   const kills = Math.floor(sec * dps / m.hp * .5);
-  if (kills > 0) { gain(kills*m.exp*.5, kills*m.meso*.5); say(`방치 보상: ${Math.floor(sec/60)}분 · ${fmt(kills)}마리 처치`); }
+  const og = Math.floor(sec/600); S.gem += og;
+  if (kills > 0) { gain(kills*m.exp*.5, kills*m.meso*.5); say(`방치 보상: ${Math.floor(sec/60)}분 · ${fmt(kills)}마리 처치 · 💎${og}`); }
 }
 
 function say(t){ $('msg').textContent = t; clearTimeout(say.t); say.t = setTimeout(()=>$('msg').textContent='', 4000); }
@@ -338,6 +341,25 @@ function eggs(n){
   for (let i = 0; i < n; i++) S.lastEgg.push(pullPet(n === 10 && i === 9 ? 1 : 0));
   renderTab();
 }
+// 보석 수급: 출석 / 일일 퀘스트 / 업적 / 드롭 / 방치
+const today = () => new Date().toLocaleDateString('sv');
+function chkDaily(){ if (S.daily.d !== today()) S.daily = {d:today(), kills:0, boss:0, enh:0, claim:{}}; }
+const DQ = [
+  {id:'kills', name:'몬스터 200마리 처치', goal:200, gem:10},
+  {id:'boss',  name:'보스 5회 처치',       goal:5,   gem:15},
+  {id:'enh',   name:'장비 강화 10회 시도', goal:10,  gem:10},
+];
+const sum = o => Object.values(o).reduce((a,b)=>a+b, 0);
+const ACH = [];
+[[10,10],[30,20],[50,30],[80,50],[100,80],[150,120],[200,200]].forEach(([g,v]) => ACH.push({id:'lv'+g, name:`레벨 ${g} 달성`, goal:g, gem:v, cur:()=>S.lv}));
+[[10,20],[40,40],[80,100]].forEach(([g,v]) => ACH.push({id:'cl'+g, name:`스테이지 ${g}개 클리어`, goal:g, gem:v, cur:()=>sum(S.clear)}));
+[[1000,20],[10000,60],[100000,200]].forEach(([g,v]) => ACH.push({id:'tk'+g, name:`몬스터 ${fmt(g)}마리 처치`, goal:g, gem:v, cur:()=>S.tk}));
+[[4,30],[8,80]].forEach(([g,v]) => ACH.push({id:'pet'+g, name:`펫 ${g}종 수집`, goal:g, gem:v, cur:()=>Object.keys(S.pets).length}));
+[[4,30],[8,80]].forEach(([g,v]) => ACH.push({id:'mt'+g, name:`동료 ${g}명 수집`, goal:g, gem:v, cur:()=>Object.keys(S.mates).length}));
+[[1,10],[5,30],[15,80]].forEach(([g,v]) => ACH.push({id:'st'+g, name:`장비 승급 ${g}회`, goal:g, gem:v, cur:()=>Object.values(S.items).reduce((a,b)=>a+b.star,0)}));
+const claimable = () => { chkDaily(); let n = S.daily.login ? 0 : 1;
+  DQ.forEach(q => { if (S.daily[q.id] >= q.goal && !S.daily.claim[q.id]) n++; });
+  ACH.forEach(a => { if (a.cur() >= a.goal && !S.ach[a.id]) n++; }); return n; };
 // UI
 let tab = 'stats';
 function renderMaps(){
@@ -385,6 +407,17 @@ function renderTab(){
     keys.forEach(k => { const it = S.items[k], eq = S.equip[kslot(k)] === k, up = it.n >= STARUP && it.star < STARMAX;
       h += `<div class="row"><div>${GEAR.find(g=>g.k===kslot(k)).e} ${itemHtml(k)}<small>보유 ${it.n}/${it.star < STARMAX ? STARUP : 'MAX'}${eq ? ' · 장착 중' : ' · 보유효과 ' + (kslot(k)==='shoes' ? '+' + (kindPow(k)*HOLD).toFixed(1) + '%' : '+' + fmt(kindPow(k)*HOLD))}</small></div>
         <span><button data-star="${k}" ${up?'':'disabled'}>승급</button> <button data-eq="${k}" ${eq?'disabled':''}>장착</button></span></div>`; });
+  } else if (tab === 'reward') {
+    chkDaily();
+    h += `<div class="row"><b>💎 보석 얻는 법</b><div>💎 ${S.gem}</div></div>`;
+    h += `<small>· 보스 처치 (스테이지가 높을수록 ↑, 첫 클리어 2배)<br>· 일반 몬스터 처치 시 2% 확률 드롭<br>· 자리 비운 10분마다 💎1 (최대 8시간)<br>· 아래 출석 · 일일 퀘스트 · 업적</small><hr>`;
+    h += `<div class="row"><div><b>출석 보상</b><small>하루 한 번 💎20</small></div><button data-claim="login" ${S.daily.login?'disabled':''}>${S.daily.login?'완료':'받기 💎20'}</button></div>`;
+    h += '<hr><b>일일 퀘스트</b>';
+    DQ.forEach(q => { const c = Math.min(S.daily[q.id]||0, q.goal), done = c >= q.goal, got = S.daily.claim[q.id];
+      h += `<div class="row"><div>${q.name}<small>${c}/${q.goal}</small></div><button data-claim="q:${q.id}" ${done && !got ? '' : 'disabled'}>${got ? '완료' : '💎' + q.gem}</button></div>`; });
+    h += '<hr><b>업적</b>';
+    ACH.slice().sort((a,b)=>(S.ach[a.id]?1:0)-(S.ach[b.id]?1:0)).forEach(a => { const c = Math.min(a.cur(), a.goal), done = c >= a.goal, got = S.ach[a.id];
+      h += `<div class="row" style="${got?'opacity:.5':''}"><div>${a.name}<small>${fmt(c)}/${fmt(a.goal)}</small></div><button data-claim="a:${a.id}" ${done && !got ? '' : 'disabled'}>${got ? '완료' : '💎' + a.gem}</button></div>`; });
   } else if (tab === 'job') {
     const ns = jobNodes(), tier = ns.length, kids = jobKids();
     h += `<div class="row"><div><b>현재 직업: ${tier ? ns.map(n=>n.n).join(' → ') : '모험가'}</b>` +
@@ -443,11 +476,16 @@ function renderTab(){
   });
   el.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
     const k = b.dataset.g, c = gearCost(k);
-    if (S.meso < c) return; S.meso -= c;
+    if (S.meso < c) return; S.meso -= c; chkDaily(); S.daily.enh++;
     if (Math.random() < gearRate(k)) { S.gear[k]++; say('강화 성공!'); } else say('강화 실패...');
     renderTab();
   });
   el.querySelectorAll('[data-eq]').forEach(b => b.onclick = () => { const k = b.dataset.eq; S.equip[kslot(k)] = k; renderTab(); });
+  el.querySelectorAll('[data-claim]').forEach(b => b.onclick = () => { const [t, id] = b.dataset.claim.split(':'); chkDaily();
+    if (t === 'login' && !S.daily.login) { S.daily.login = true; S.gem += 20; }
+    else if (t === 'q') { const q = DQ.find(x=>x.id===id); if (S.daily[id] >= q.goal && !S.daily.claim[id]) { S.daily.claim[id] = true; S.gem += q.gem; } }
+    else if (t === 'a') { const a = ACH.find(x=>x.id===id); if (a.cur() >= a.goal && !S.ach[id]) { S.ach[id] = true; S.gem += a.gem; } }
+    renderTab(); });
   el.querySelectorAll('[data-star]').forEach(b => b.onclick = () => { const it = S.items[b.dataset.star];
     if (it.n >= STARUP && it.star < STARMAX) { it.n -= STARUP; it.star++; say('승급! ' + it.star + '성'); renderTab(); } });
   if ($('p1')) $('p1').onclick = () => pull(1);
@@ -472,6 +510,7 @@ function renderTab(){
 function render(){
   const p = P();
   $('lv').textContent = 'Lv.' + S.lv;
+  { const n = claimable(), bt = document.querySelector('[data-tab=reward]'); const t = '보상' + (n ? ` (${n})` : ''); if (bt.textContent !== t) bt.textContent = t; }
   $('mateview').textContent = S.party.map(id => id ? MATES[id].e : '').join('');
   $('petview').textContent = S.petEq.map(id => id ? PETS[id].e : '').join('');
   const jn = jobNodes(); $('job').textContent = (jn.length ? jn[jn.length-1].n : '모험가');

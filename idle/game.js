@@ -161,10 +161,14 @@ const gearCost = k => Math.floor(100 * Math.pow(1.35, S.gear[k]));
 const gearRate = k => Math.max(.15, 1 - S.gear[k]*.02);
 
 // combat state
+// 스테이지 난이도 / 보상 성장률 (스테이지당 배수)
+const HPG = 1.6, DMGG = 1.45, RWG = 1.5;
+const bossTime = st => Math.max(15, 32 - st*2);
+const bossGem = (map, st) => Math.round((3 + map*2) * (1 + .6*(st-1)));
 const mCd = {};
 let petCd = 2, mhp, mmax, php, isBoss = false, bossT = 0, atkCd = 0, monCd = 0, skCd = 3;
 const mon = () => {
-  const m = MAPS[S.map], boss = isBoss, sm = Math.pow(1.35, S.stage-1), rm = Math.pow(1.25, S.stage-1);
+  const m = MAPS[S.map], boss = isBoss, sm = Math.pow(HPG, S.stage-1), rm = Math.pow(RWG, S.stage-1);
   return {hp: m.hp * sm * (boss ? 12 : 1), exp: m.exp * rm * (boss ? 10 : 1), meso: m.meso * rm * (boss ? 10 : 1)};
 };
 function spawn(){ const m = mon(); mmax = mhp = m.hp; $('monster').firstChild.textContent = isBoss?'👹':MAPS[S.map].e; }
@@ -181,16 +185,16 @@ function gain(exp, meso){
 function kill(){
   chkDaily(); const m = mon(); gain(m.exp, m.meso); S.kills++; S.tk++;
   if (isBoss) S.daily.boss++; else { S.daily.kills++;
-    if (Math.random() < .02) { const g = 1 + (S.map >> 1); S.gem += g; float('💎+' + g, true, 'm'); } }
+    if (Math.random() < .02) { const g = 1 + (S.map >> 1) + (S.stage >> 1); S.gem += g; float('💎+' + g, true, 'm'); } }
   if (isBoss) {
-    const g = 3 + S.map*2 + S.stage; S.gem += g; isBoss = false; S.best = Math.max(S.best, S.map);
+    const g = bossGem(S.map, S.stage); S.gem += g; isBoss = false; S.best = Math.max(S.best, S.map);
     const first = (S.clear[S.map]||0) < S.stage;
     if (first) { S.clear[S.map] = S.stage; say(`스테이지 ${S.stage} 클리어! 💎+${g} (첫 클리어)`); S.gem += g; }
     else say(`보스 처치! 💎+${g}`);
     if (S.stage < STAGES) S.stage++;
     S.kills = 0;
   }
-  else if (S.kills % 10 === 0) { isBoss = true; bossT = 30; }
+  else if (S.kills % 10 === 0) { isBoss = true; bossT = bossTime(S.stage); }
   spawn();
 }
 const DT = .1;
@@ -231,7 +235,7 @@ function tick(){
   monCd -= DT;
   if (monCd <= 0) {
     monCd = 1;
-    const raw = (m.hp / 32) * Math.pow(1.35, S.stage-1) * (isBoss ? 1.5 : 1) + m.lv * 2;
+    const raw = (m.hp / 32) * Math.pow(DMGG, S.stage-1) * (isBoss ? 1.5 : 1) + m.lv * 2;
     const d = Math.max(1, raw - p.def) * (1 - p.red);
     php -= d; float('-'+fmt(d), false, 'p');
     if (php <= 0) { isBoss = false; S.kills = 0; respawnPlayer(); spawn(); say('쓰러졌습니다... 부활!'); }
@@ -410,7 +414,7 @@ function renderTab(){
   } else if (tab === 'reward') {
     chkDaily();
     h += `<div class="row"><b>💎 보석 얻는 법</b><div>💎 ${S.gem}</div></div>`;
-    h += `<small>· 보스 처치 (스테이지가 높을수록 ↑, 첫 클리어 2배)<br>· 일반 몬스터 처치 시 2% 확률 드롭<br>· 자리 비운 10분마다 💎1 (최대 8시간)<br>· 아래 출석 · 일일 퀘스트 · 업적</small><hr>`;
+    h += `<small>· 보스 처치 (스테이지가 높을수록 크게 ↑, 첫 클리어 2배)<br>· 일반 몬스터 처치 시 2% 확률 드롭 (사냥터·스테이지가 높을수록 ↑)<br>· 자리 비운 10분마다 💎1 (최대 8시간)<br>· 아래 출석 · 일일 퀘스트 · 업적</small><hr>`;
     h += `<div class="row"><div><b>출석 보상</b><small>하루 한 번 💎20</small></div><button data-claim="login" ${S.daily.login?'disabled':''}>${S.daily.login?'완료':'받기 💎20'}</button></div>`;
     h += '<hr><b>일일 퀘스트</b>';
     DQ.forEach(q => { const c = Math.min(S.daily[q.id]||0, q.goal), done = c >= q.goal, got = S.daily.claim[q.id];

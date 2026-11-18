@@ -176,7 +176,7 @@ const STATS = [
 ];
 
 const fresh = () => ({lv:1,exp:0,meso:0,gem:0,map:0,kills:0,stat:{atk:0,hp:0,crit:0,cdmg:0,meso:0},
-  gear:{weapon:0,hat:0,armor:0,shoes:0,gloves:0,cape:0,ring:0,neck:0},best:0,last:Date.now(),stage:1,clear:{},ui:{detail:false,missing:false,auto:true},relic:{},rs:0,eng:[null,null,null],daily:{},ach:{},tk:0,week:{},mine:{lv:0,t:0},ex:{d:'',n:0},job:[],pets:{},mates:{},party:[null,null,null],mpity:0,mpulls:0,lastMate:[],petEq:[null,null],ppity:0,ppulls:0,lastEgg:[],items:{},equip:{weapon:null,hat:null,armor:null,shoes:null,gloves:null,cape:null,ring:null,neck:null},pity:0,pity10:0,pulls:0,lastPull:[]});
+  gear:{weapon:0,hat:0,armor:0,shoes:0,gloves:0,cape:0,ring:0,neck:0},best:0,last:Date.now(),stage:1,clear:{},ui:{detail:false,missing:false,auto:true},sp:{},lr:0,relic:{},rs:0,eng:[null,null,null],daily:{},ach:{},tk:0,week:{},mine:{lv:0,t:0},ex:{d:'',n:0},job:[],pets:{},mates:{},party:[null,null,null],mpity:0,mpulls:0,lastMate:[],petEq:[null,null],ppity:0,ppulls:0,lastEgg:[],items:{},equip:{weapon:null,hat:null,armor:null,shoes:null,gloves:null,cape:null,ring:null,neck:null},pity:0,pity10:0,pulls:0,lastPull:[]});
 let S = fresh();
 try { const raw = localStorage.getItem('mapleIdle'); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch(e){}
 if (Array.isArray(S.inv) || Object.values(S.equip||{}).some(v => v && typeof v === 'object')) {   // 구버전 장비 변환
@@ -190,26 +190,47 @@ if (Array.isArray(S.inv) || Object.values(S.equip||{}).some(v => v && typeof v =
   }
 }
 S.ui = Object.assign({detail:false,missing:false,auto:true}, S.ui);
+S.sp = S.sp || {};
 for (const k of Object.keys(S.relic)) if (!RELICS[k]) delete S.relic[k];
 S.eng = [0,1,2].map(i => S.relic[S.eng[i]] ? S.eng[i] : null);
 GEAR.forEach(g => { if (S.gear[g.k] == null) S.gear[g.k] = 0; if (!(g.k in S.equip)) S.equip[g.k] = null; });
 for (const id of Object.keys(S.mates)) { if (!MATES[id]) delete S.mates[id]; else { S.mates[id].lv = Math.min(MATEMAX, S.mates[id].lv||1); S.mates[id].sh = S.mates[id].sh||0; } }
 S.party = S.party.map(id => S.mates[id] ? id : null);
 
+// 레벨 100 이후 레벨업마다 능력치 포인트 1 (배분), 10레벨마다 구간 보상
+const SPSTART = 100;
+const SPSTAT = {
+  atk:  {n:'공격력',      per:.01,  pct:1},
+  hp:   {n:'HP',          per:.01,  pct:1},
+  crit: {n:'크리율',      per:.002, pct:1},
+  cdmg: {n:'크리 데미지', per:.01,  pct:1},
+  meso: {n:'메소 획득',   per:.01,  pct:1},
+  skill:{n:'스킬 데미지', per:.01,  pct:1},
+};
+const spTotal = () => Math.max(0, S.lv - SPSTART);
+const spUsed = () => Object.values(S.sp).reduce((a,b)=>a+b, 0);
+const spLeft = () => spTotal() - spUsed();
+const SP = k => (S.sp[k]||0) * SPSTAT[k].per;
+const lvReward = m => ({gem: 5 + m/10, rs: 2*m/10});
+function claimLv(){   // 10레벨마다 자동 지급 (놓친 구간도 한 번에)
+  let g = 0, r = 0;
+  for (let m = S.lr + 10; m <= S.lv; m += 10) { const x = lvReward(m); g += x.gem; r += x.rs; S.lr = m; }
+  if (g) { S.gem += g; S.rs += r; say(`🎉 레벨 ${S.lr} 달성 보상! 💎+${g} · 💠+${r}`); }
+}
 const need = lv => Math.floor(20 * Math.pow(lv, 2.1) * 1.05);
 const P = () => {
   const J = jm(), B = pb(), M = mt(), R = rv(), H = hold(), E = S.equip, ep = k => (E[k] ? kindPow(E[k]) : 0) + H[k], pg = k => (ep(k) + S.gear[k]*GEAR.find(g=>g.k===k).per) / 100;
-  const critRaw = .05 + S.stat.crit*.005 + J.crit + B.crit + pg('gloves') + R.crit;
-  const atk = (10 + S.lv*3 + S.stat.atk*5 + S.gear.weapon*12 + ep('weapon')) * J.atk * B.atk * M.atk * (1 + R.atk);
+  const critRaw = .05 + S.stat.crit*.005 + J.crit + B.crit + pg('gloves') + R.crit + SP('crit');
+  const atk = (10 + S.lv*3 + S.stat.atk*5 + S.gear.weapon*12 + ep('weapon')) * J.atk * B.atk * M.atk * (1 + R.atk) * (1 + SP('atk'));
   return {
     atk,
-    hp: (100 + S.lv*20 + S.stat.hp*40 + S.gear.hat*60 + ep('hat')) * J.hp * B.hp * (1 + R.hp),
+    hp: (100 + S.lv*20 + S.stat.hp*40 + S.gear.hat*60 + ep('hat')) * J.hp * B.hp * (1 + R.hp) * (1 + SP('hp')),
     def: (S.gear.armor*6 + S.lv + ep('armor')) * J.def * (1 + R.def),
     crit: Math.min(1, critRaw), critOver: Math.max(0, critRaw - 1),   // 100% 초과분은 크리 데미지로 전환
-    cdmg: 1.5 + S.stat.cdmg*.02 + J.cdmg + pg('ring') + R.cdmg + Math.max(0, critRaw - 1),
+    cdmg: 1.5 + S.stat.cdmg*.02 + J.cdmg + pg('ring') + R.cdmg + SP('cdmg') + Math.max(0, critRaw - 1),
     spd: (1 + (S.gear.shoes*2 + ep('shoes'))/100) * J.spd * B.spd * (1 + R.spd),
-    meso: (1 + S.stat.meso*.03) * J.meso * B.meso * M.meso * (1 + pg('neck')) * (1 + R.meso), exp: B.exp * M.exp * (1 + pg('neck')) * (1 + R.exp), red: Math.min(.7, M.red + pg('cape')),
-    skill: J.skill * (1 + R.skill), rmate: 1 + R.mate, rpet: 1 + R.pet, regen: J.regen + M.regen,
+    meso: (1 + S.stat.meso*.03) * J.meso * B.meso * M.meso * (1 + pg('neck')) * (1 + R.meso) * (1 + SP('meso')), exp: B.exp * M.exp * (1 + pg('neck')) * (1 + R.exp), red: Math.min(.7, M.red + pg('cape')),
+    skill: J.skill * (1 + R.skill) * (1 + SP('skill')), rmate: 1 + R.mate, rpet: 1 + R.pet, regen: J.regen + M.regen,
   };
 };
 const upCost = (s) => Math.floor(s.base * Math.pow(s.g, S.stat[s.k]));
@@ -239,6 +260,7 @@ function float(t, crit, side){
 function gain(exp, meso){
   const pp = P(); S.exp += exp * pp.exp; S.meso += meso * pp.meso;
   while (S.exp >= need(S.lv)) { S.exp -= need(S.lv); S.lv++; php = P().hp; }
+  claimLv();
 }
 function kill(){
   chkDaily(); const m = mon(); gain(m.exp, m.meso); S.kills++; S.tk++;
@@ -529,6 +551,13 @@ function renderTab(){
       ['받는 피해', '-' + pc(p.red)], ['HP 회복/초', pc(p.regen)],
       ['내 DPS', fmt(D.me)], ['동료 DPS', fmt(D.mate) + ' (' + Math.round(D.mate/D.total*100) + '%)'], ['펫 DPS', fmt(D.pet)], ['총 DPS', fmt(D.total)]];
     h += '<div class="sg">' + rows.map(r => `<div><span>${r[0]}</span><b>${r[1]}</b></div>`).join('') + '</div><hr>';
+    if (S.lv > SPSTART || spUsed()) {
+      h += `<div class="row"><div><b>✨ 능력치 포인트 ${spLeft()}</b><small>Lv.${SPSTART} 이후 레벨업마다 +1 · 초기화 💎10</small></div><button data-spreset="1" ${spUsed() && S.gem >= 10 ? '' : 'disabled'}>초기화</button></div>`;
+      Object.keys(SPSTAT).forEach(k => { const d = SPSTAT[k], v = (S.sp[k]||0) * d.per * 100;
+        h += `<div class="row c"><div>${d.n} <b>${S.sp[k]||0}</b><small>+${v.toFixed(1).replace(/\.0$/,'')}% (포인트당 +${(d.per*100).toFixed(1).replace(/\.0$/,'')}%)</small></div><span><button data-sp="${k}:1" ${spLeft() >= 1 ? '' : 'disabled'}>+1</button> <button data-sp="${k}:10" ${spLeft() >= 1 ? '' : 'disabled'}>+10</button> <button data-sp="${k}:all" ${spLeft() >= 1 ? '' : 'disabled'}>전부</button></span></div>`; });
+      h += '<hr>';
+    } else h += `<small>✨ Lv.${SPSTART}부터 레벨업마다 능력치 포인트를 받습니다 · 10레벨마다 💎·💠 보상</small><hr>`;
+
     STATS.forEach(s => {
       const c = upCost(s), maxed = s.max && S.stat[s.k] >= s.max;
       h += `<div class="row"><div><b>${s.name}</b> Lv.${S.stat[s.k]}<small>${s.desc}</small></div>
@@ -611,6 +640,9 @@ function renderTab(){
     else if (t === 'w') { const q = WQ.find(x=>x.id===id); if (S.week[id] >= q.goal && !S.week.claim[id]) { S.week.claim[id] = true; S.gem += q.gem; } }
     else if (t === 'a') { const a = ACH.find(x=>x.id===id); if (a.cur() >= a.goal && !S.ach[id]) { S.ach[id] = true; S.gem += a.gem; } }
     renderTab(); });
+  el.querySelectorAll('[data-sp]').forEach(b => b.onclick = () => { const [k, a] = b.dataset.sp.split(':'), n = a === 'all' ? spLeft() : Math.min(+a, spLeft());
+    if (n > 0) { S.sp[k] = (S.sp[k]||0) + n; renderTab(); } });
+  el.querySelectorAll('[data-spreset]').forEach(b => b.onclick = () => { if (S.gem >= 10 && spUsed()) { S.gem -= 10; S.sp = {}; say('포인트 초기화'); renderTab(); } });
   el.querySelectorAll('[data-rl]').forEach(b => b.onclick = () => { const k = b.dataset.rl, c = relicCost(k);
     if (S.rs >= c && relicLv(k) < RELICMAX) { S.rs -= c; (S.relic[k] = S.relic[k] || {lv:0}).lv++; autoAll(); renderTab(); } });
   el.querySelectorAll('[data-rall]').forEach(b => b.onclick = () => { let n = 0;
@@ -671,7 +703,7 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
 $('save').onclick = () => { save(); say('저장됨'); };
 $('reset').onclick = () => { if (confirm('정말 초기화?')) { localStorage.removeItem('mapleIdle'); S = fresh(); respawnPlayer(); spawn(); renderMaps(); renderTab(); } };
 
-mergeMax(); autoAll(); offline(); respawnPlayer(); spawn(); renderMaps(); renderTab();
+claimLv(); mergeMax(); autoAll(); offline(); respawnPlayer(); spawn(); renderMaps(); renderTab();
 setInterval(tick, 100);
 setInterval(render, 100);
 setInterval(renderTab, 1000);

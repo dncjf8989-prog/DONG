@@ -46,11 +46,15 @@ const PETBT = {atk:'공격력',hp:'HP',meso:'메소',exp:'경험치',crit:'크�
 const PET1 = 10, PET10 = 90, PETMAX = 20, PETSLOT = 2;
 const petLv = id => S.pets[id] ? S.pets[id].lv : 0;
 const petMul = id => 1 + .15*(petLv(id)-1);
-const petTxt = id => Object.entries(PETS[id].b).map(([k,v]) => `${PETBT[k]} +${Math.round(v*petMul(id)*100)}%`).join(' · ');
+const petTxt = (id, f=1) => Object.entries(PETS[id].b).map(([k,v]) => `${PETBT[k]} +${(v*petMul(id)*f*100).toFixed(f<1?1:0).replace(/\.0$/,'')}%`).join(' · ');
+const petOwned = () => Object.keys(S.pets).length;
 function pb(){
-  const o = {atk:1,hp:1,meso:1,exp:1,crit:0,spd:1};
-  S.petEq.forEach(id => { if (!id || !S.pets[id]) return;
-    for (const k in PETS[id].b) { const v = PETS[id].b[k]*petMul(id); if (k === 'crit') o.crit += v; else o[k] += v; } });
+  const o = {atk:1,hp:1,meso:1,exp:1,crit:0,spd:1}, n = petOwned();
+  // 도감 보너스: 보유 종류당 공격력 +3%, 경험치 +2%
+  o.atk += .03*n; o.exp += .02*n;
+  Object.keys(S.pets).forEach(id => {
+    const f = S.petEq.includes(id) ? 1 : PETHOLD;   // 장착 100% / 보유만 30%
+    for (const k in PETS[id].b) { const v = PETS[id].b[k]*petMul(id)*f; if (k === 'crit') o.crit += v; else o[k] += v; } });
   return o;
 }
 const JOB_LV = [10, 40, 80, 130];
@@ -100,7 +104,7 @@ try { const raw = localStorage.getItem('mapleIdle'); if (raw) S = Object.assign(
 const rebMul = () => 1 + S.rebirth * 0.5;
 const need = lv => Math.floor(20 * Math.pow(lv, 2.1) * 1.05);
 const P = () => {
-  const J = jm(), B = pb(), E = S.equip, ep = k => E[k] ? E[k].pow : 0;
+  const J = jm(), B = pb(), H = hold(), E = S.equip, ep = k => (E[k] ? E[k].pow : 0) + H[k];
   const atk = (10 + S.lv*3 + S.stat.atk*5 + S.gear.weapon*12 + ep('weapon')) * rebMul() * J.atk * B.atk;
   return {
     atk,
@@ -229,6 +233,9 @@ function pull(n){
   renderTab();
 }
 const statTxt = it => it.slot === 'shoes' ? `공속 +${it.pow}%` : `${GEAR.find(g=>g.k===it.slot).stat} +${fmt(it.pow)}`;
+const HOLD = .1, PETHOLD = .3;
+function hold(){ const o = {weapon:0,hat:0,armor:0,shoes:0}; S.inv.forEach(it => o[it.slot] += it.pow*HOLD); return o; }
+const holdTxt = H => `공격력 +${fmt(H.weapon)} · HP +${fmt(H.hat)} · 방어 +${fmt(H.armor)} · 공속 +${H.shoes.toFixed(1)}%`;
 const itemHtml = it => `<span style="color:${RARITY[it.r].c};font-weight:700">[${RARITY[it.r].n}] ${it.name}</span> <small>${statTxt(it)}</small>`;
 
 // pet gacha
@@ -280,14 +287,14 @@ function renderTab(){
     });
   } else if (tab === 'gear') {
     GEAR.forEach(g => { const e = S.equip[g.k]; h += `<div class="row"><div>${g.e} ${e ? itemHtml(e) : '<small>미장착</small>'}</div></div>`; });
-    h += '<hr>';
+    h += `<small>보유효과 (보관함 장비 ${HOLD*100}%): ${holdTxt(hold())}</small><hr>`;
     GEAR.forEach(g => {
       const c = gearCost(g.k);
       h += `<div class="row"><div>${g.e} <b>${g.name} +${S.gear[g.k]}</b><small>${g.stat} +${g.per}/강 · 성공 ${Math.round(gearRate(g.k)*100)}%</small></div>
         <button data-g="${g.k}" ${S.meso<c?'disabled':''}>강화 💰${fmt(c)}</button></div>`;
     });
     const inv = S.inv.slice().sort((a,b)=>b.r-a.r||b.pow-a.pow);
-    h += `<hr><div class="row"><b>보관함 (${inv.length})</b><button id="sellall" ${inv.length?'':'disabled'}>전부 판매</button></div>`;
+    h += `<hr><div class="row"><div><b>보관함 (${inv.length})</b><small>판매하면 보유효과가 사라집니다</small></div><button id="sellall" ${inv.length?'':'disabled'}>전부 판매</button></div>`;
     inv.slice(0, 30).forEach(it => { h += `<div class="row"><div>${GEAR.find(g=>g.k===it.slot).e} ${itemHtml(it)}</div><span><button data-eq="${it.id}">장착</button> <button data-sell="${it.id}">판매</button></span></div>`; });
     if (inv.length > 30) h += `<small>…외 ${inv.length-30}개</small>`;
   } else if (tab === 'job') {
@@ -306,6 +313,7 @@ function renderTab(){
     h += `<div class="row"><div><b>장착 중 (${PETSLOT}칸)</b></div><div>💎 ${S.gem}</div></div>`;
     for (let i = 0; i < PETSLOT; i++) { const id = S.petEq[i];
       h += `<div class="row"><div>${id ? PETS[id].e + ' <b style="color:'+RARITY[PETS[id].r].c+'">'+PETS[id].n+' Lv.'+petLv(id)+'</b><small>'+petTxt(id)+' · 2초마다 자동 공격</small>' : '<small>빈 칸</small>'}</div>${id ? `<button data-un="${i}">해제</button>` : ''}</div>`; }
+    h += `<small>보유효과: 장착하지 않은 펫도 능력치의 ${PETHOLD*100}%가 적용됩니다.<br>도감 ${petOwned()}/${Object.keys(PETS).length}종 → 공격력 +${petOwned()*3}% · 경험치 +${petOwned()*2}%</small>`;
     h += '<hr>';
     h += `<div class="row"><div><b>펫 알 뽑기</b><small>천장 ${S.ppity}/80 (레전더리 보장) · 총 ${S.ppulls}회</small></div></div>`;
     h += '<table class="rates"><tr>' + RARITY.map((r,i)=>{ const n = Object.values(PETS).filter(p=>p.r===i).length; return `<td style="color:${r.c}"><b>${r.n}</b><br>${r.rate}%<br><small>종당 ${(r.rate/n).toFixed(1)}%</small></td>`; }).join('') + '</tr></table>';
@@ -315,7 +323,7 @@ function renderTab(){
     Object.keys(PETS).sort((a,b)=>PETS[b].r-PETS[a].r).forEach(id => { const p = PETS[id], o = S.pets[id];
       if (!o) { h += `<div class="row"><div style="opacity:.45">❔ ${p.n}<small>${RARITY[p.r].n} · 미발견</small></div></div>`; return; }
       const need = o.lv, can = o.sh >= need && o.lv < PETMAX, eq = S.petEq.includes(id);
-      h += `<div class="row"><div>${p.e} <b style="color:${RARITY[p.r].c}">${p.n}</b> Lv.${o.lv}<small>${petTxt(id)}<br>조각 ${o.sh}/${o.lv < PETMAX ? need : 'MAX'}</small></div>
+      h += `<div class="row"><div>${p.e} <b style="color:${RARITY[p.r].c}">${p.n}</b> Lv.${o.lv}<small>${eq ? petTxt(id) : '보유효과 ' + petTxt(id, PETHOLD)}<br>조각 ${o.sh}/${o.lv < PETMAX ? need : 'MAX'}</small></div>
         <span><button data-pl="${id}" ${can?'':'disabled'}>강화</button> <button data-pe="${id}" ${eq?'disabled':''}>장착</button></span></div>`; });
   } else if (tab === 'gacha') {
     h += `<div class="row"><div><b>장비 뽑기</b><small>천장: 10회 안에 에픽↑ 보장 · 100회 레전더리 보장 (현재 ${S.pity10}/10 · ${S.pity}/100)</small></div><div>💎 ${S.gem}</div></div>`;

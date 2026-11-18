@@ -177,7 +177,7 @@ const STATS = [
 ];
 
 const fresh = () => ({lv:1,exp:0,meso:0,gem:0,map:0,kills:0,stat:{atk:0,hp:0,crit:0,cdmg:0,meso:0},
-  gear:{weapon:0,hat:0,armor:0,shoes:0,gloves:0,cape:0,ring:0,neck:0},best:0,last:Date.now(),stage:1,clear:{},ui:{detail:false,missing:false,auto:true},sk:{},sp:{},lr:0,relic:{},rs:0,eng:[null,null,null],daily:{},ach:{},tk:0,week:{},mine:{lv:0,t:0},ex:{d:'',n:0},job:[],pets:{},mates:{},party:[null,null,null],mpity:0,mpulls:0,lastMate:[],petEq:[null,null],ppity:0,ppulls:0,lastEgg:[],items:{},equip:{weapon:null,hat:null,armor:null,shoes:null,gloves:null,cape:null,ring:null,neck:null},pity:0,pity10:0,pulls:0,lastPull:[]});
+  gear:{weapon:0,hat:0,armor:0,shoes:0,gloves:0,cape:0,ring:0,neck:0},best:0,last:Date.now(),stage:1,clear:{},ui:{detail:false,missing:false,auto:true},tower:{best:0,tk:3,d:''},sk:{},sp:{},lr:0,relic:{},rs:0,eng:[null,null,null],daily:{},ach:{},tk:0,week:{},mine:{lv:0,t:0},ex:{d:'',n:0},job:[],pets:{},mates:{},party:[null,null,null],mpity:0,mpulls:0,lastMate:[],petEq:[null,null],ppity:0,ppulls:0,lastEgg:[],items:{},equip:{weapon:null,hat:null,armor:null,shoes:null,gloves:null,cape:null,ring:null,neck:null},pity:0,pity10:0,pulls:0,lastPull:[]});
 let S = fresh();
 try { const raw = localStorage.getItem('mapleIdle'); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch(e){}
 if (Array.isArray(S.inv) || Object.values(S.equip||{}).some(v => v && typeof v === 'object')) {   // 구버전 장비 변환
@@ -191,6 +191,7 @@ if (Array.isArray(S.inv) || Object.values(S.equip||{}).some(v => v && typeof v =
   }
 }
 S.ui = Object.assign({detail:false,missing:false,auto:true}, S.ui);
+S.tower = Object.assign({best:0,tk:3,d:''}, S.tower);
 S.sp = S.sp || {}; S.sk = S.sk || {};
 for (const k of Object.keys(S.relic)) if (!RELICS[k]) delete S.relic[k];
 S.eng = [0,1,2].map(i => S.relic[S.eng[i]] ? S.eng[i] : null);
@@ -296,8 +297,32 @@ const bossTime = st => Math.max(15, 32 - st*2) + rv().boss;
 const bossGem = (map, st) => Math.max(1, Math.round((1 + map) * (1 + .3*(st-1))));
 const mCd = {};
 let petCd = 2, mhp, mmax, php, isBoss = false, bossT = 0, atkCd = 0, monCd = 0, skCd = 3;
+// ---- 무한의 탑: 하루 입장권으로 보스를 층층이 오르는 도전 콘텐츠 ----
+const TW = {unlock:30, tickets:3, time:30};
+let towerRun = null;   // {floor, cleared} (메모리에만 보관: 접속을 끊으면 종료)
+const twTier = F => 12 + F*0.4;
+const twStats = F => ({hp: TIERHP.h0 * Math.pow(TIERHP.g, twTier(F)) * 6, dmg: TIERDMG.d0 * Math.pow(TIERDMG.g, twTier(F)) * 1.5});
+const twReward = F => ({rs: 1 + Math.floor(F/5), meso: tierMeso(twTier(F)) * 30, gem: F % 5 === 0 ? 2 + Math.floor(F/10) : 0});
+function towerStart(){
+  chkDaily();
+  if (towerRun || S.lv < TW.unlock || S.tower.tk < 1) return;
+  S.tower.tk--; towerRun = {floor: S.tower.best + 1, cleared: 0};
+  isBoss = true; bossT = TW.time + rv().boss; rd = 1; atkCd = 0; monCd = 1; respawnPlayer(); spawn(); say('🗼 무한의 탑 도전!');
+}
+function towerEnd(msg){
+  const c = towerRun ? towerRun.cleared : 0; towerRun = null; isBoss = false; S.kills = 0;
+  respawnPlayer(); spawn(); say(`🗼 ${msg} · 이번 도전 ${c}층 클리어 (최고 ${S.tower.best}층)`);
+}
+function towerClear(){
+  const F = towerRun.floor, r = twReward(F), rec = F > S.tower.best;
+  gain(0, r.meso); S.rs += r.rs; if (rec) { S.tower.best = F; S.gem += r.gem; }
+  towerRun.cleared++; towerRun.floor++;
+  say(`🗼 ${F}층 클리어! 💠+${r.rs}` + (rec ? (r.gem ? ` · 신기록 💎+${r.gem}` : ' · 신기록') : ''));
+  isBoss = true; bossT = TW.time + rv().boss; rd = 1; spawn();
+}
 const mon0 = () => { const b = isBoss; isBoss = false; const r = mon(); isBoss = b; return r; };
 const mon = () => {
+  if (towerRun) return {hp: twStats(towerRun.floor).hp, exp: 0, meso: 0};
   const T = tierOf(), boss = isBoss;
   return {hp: TIERHP.h0 * Math.pow(TIERHP.g, T) * (boss ? 6 : 1), exp: tierExp(T) * (boss ? 8 : 1), meso: tierMeso(T) * (boss ? 8 : 1)};
 };
@@ -315,6 +340,7 @@ function gain(exp, meso){
   claimLv();
 }
 function kill(){
+  if (towerRun) { towerClear(); return; }
   chkDaily(); const m = mon(); gain(m.exp, m.meso); S.kills++; S.tk++; rd = isBoss ? 1.2 : .6;
   if (isBoss) { S.daily.boss++; S.week.boss++; } else { S.daily.kills++; S.week.kills++;
     if (S.tk % 1000 === 0) { const g = 5 + S.map*2 + S.stage; S.gem += g; say(`🎁 보석 상자! 💎+${g}`); }
@@ -371,12 +397,13 @@ function tick(){
   monCd -= DT;
   if (monCd <= 0) {
     monCd = 1;
-    const raw = TIERDMG.d0 * Math.pow(TIERDMG.g, tierOf()) * (isBoss ? 1.5 : 1);
+    const raw = towerRun ? twStats(towerRun.floor).dmg : TIERDMG.d0 * Math.pow(TIERDMG.g, tierOf()) * (isBoss ? 1.5 : 1);
     const d = Math.max(1, raw - p.def) * (1 - p.red);
     php -= d; float('-'+fmt(d), false, 'p');
+    if (php <= 0 && towerRun) { towerEnd('쓰러졌습니다'); return; }
     if (php <= 0) { isBoss = false; S.kills = 0; respawnPlayer(); spawn(); say('쓰러졌습니다... 부활!'); }
   }
-  if (isBoss) { bossT -= DT; if (bossT <= 0) { isBoss = false; spawn(); say('보스 시간 초과!'); } }
+  if (isBoss) { bossT -= DT; if (bossT <= 0) { if (towerRun) { towerEnd('시간 초과'); return; } isBoss = false; spawn(); say('보스 시간 초과!'); } }
 }
 
 // offline progress
@@ -503,6 +530,7 @@ function chkDaily(){
   if (S.daily.d !== today()) S.daily = {d:today(), kills:0, boss:0, enh:0, claim:{}};
   if (S.week.d !== weekKey()) S.week = {d:weekKey(), kills:0, boss:0, enh:0, claim:{}};
   if (S.ex.d !== today()) S.ex = {d:today(), n:0};
+  if (S.tower.d !== today()) { S.tower.d = today(); S.tower.tk = TW.tickets; }
 }
 const WQ = [
   {id:'kills', name:'몬스터 3,000마리 처치', goal:3000, gem:40},
@@ -612,7 +640,7 @@ function renderMaps(){
     const b = document.createElement('button');
     b.textContent = document.body.classList.contains('stealth') ? `${i+1}. ${m.name} (Lv.${m.lv})` : m.e + ' Lv.' + m.lv;
     b.disabled = S.lv < m.lv || i === S.map;
-    b.onclick = () => { S.map = i; S.stage = Math.min(STAGES, (S.clear[i]||0)+1); isBoss = false; S.kills = 0; spawn(); renderMaps(); };
+    b.onclick = () => { if (towerRun) return; S.map = i; S.stage = Math.min(STAGES, (S.clear[i]||0)+1); isBoss = false; S.kills = 0; spawn(); renderMaps(); };
     $('maps').appendChild(b);
   });
   const st = $('stages'); st.innerHTML = '';
@@ -620,7 +648,7 @@ function renderMaps(){
   for (let i = 1; i <= STAGES; i++) {
     const b = document.createElement('button');
     b.textContent = i; b.disabled = i > open; if (i === S.stage) b.className = 'cur';
-    b.onclick = () => { S.stage = i; isBoss = false; S.kills = 0; spawn(); renderMaps(); };
+    b.onclick = () => { if (towerRun) return; S.stage = i; isBoss = false; S.kills = 0; spawn(); renderMaps(); };
     st.appendChild(b);
   }
 }
@@ -662,6 +690,17 @@ function renderTab(){
     keys.forEach(k => { const it = S.items[k], eq = S.equip[kslot(k)] === k, up = it.n >= STARUP && it.star < STARMAX;
       h += `<div class="row c"><div>${GEAR.find(g=>g.k===kslot(k)).e} <span style="color:${RARITY[kr(k)].c};font-weight:700">${kindName(k)}${starOf(k) ? '★' + starOf(k) : ''}</span> <small>${statTxt(k).replace(/^[^+-]*/, '')} · ${it.star < STARMAX ? it.n + '/' + STARUP : 'MAX ' + it.n + '/' + STARUP + (kr(k) < 4 ? ' → ' + ITEM[kslot(k)].names[kr(k)+1] : ' → 💎' + MERGEGEM)}${eq ? ' · 착용' : ''}</small></div>
         <span><button data-star="${k}" ${up?'':'disabled'}>승급</button>${S.ui.auto ? '' : ` <button data-eq="${k}" ${eq?'disabled':''}>장착</button>`}</span></div>`; });
+  } else if (tab === 'tower') {
+    chkDaily();
+    const F = (towerRun ? towerRun.floor : S.tower.best + 1), st = twStats(F), rw = twReward(F);
+    h += `<div class="row"><div><b>🗼 무한의 탑</b><small>최고 기록 ${S.tower.best}층 · 입장권 ${S.tower.tk}/${TW.tickets} (매일 초기화)</small></div></div>`;
+    if (S.lv < TW.unlock) h += `<small>Lv.${TW.unlock}부터 입장할 수 있습니다.</small>`;
+    else if (towerRun) {
+      h += `<div class="row"><div><b>도전 중: ${towerRun.floor}층</b><small>이번 도전 ${towerRun.cleared}층 클리어 · 쓰러지거나 시간이 다 되면 끝납니다</small></div><button data-tw="quit">포기</button></div>`;
+    } else {
+      h += `<div class="row"><div><b>${F}층부터 도전</b><small>수문장 HP ${fmt(st.hp)} · 공격 ${fmt(st.dmg)} · 제한 ${TW.time}초</small></div><button data-tw="start" ${S.tower.tk >= 1 ? '' : 'disabled'}>도전 🎟️</button></div>`;
+    }
+    h += `<hr><b>보상</b><small>· 층 클리어마다 💠 유물 조각 (${F}층: ${rw.rs}개) 과 메소 (${fmt(rw.meso)})<br>· <b>최고 기록을 넘긴 5의 배수 층</b>은 💎 추가 (예: ${Math.ceil(F/5)*5}층 → ${twReward(Math.ceil(F/5)*5).gem}개)<br>· 한 번 입장하면 쓰러질 때까지 계속 올라갑니다 (입장권 1장)<br>· 도전 중에는 사냥터가 멈춥니다</small>`;
   } else if (tab === 'skill') {
     const root = skRoot(), tier = skTier();
     if (!root) h += `<small>Lv.10에 1차 전직하면 스킬 트리가 열립니다. (직업 탭)</small>`;
@@ -764,6 +803,7 @@ function renderTab(){
     if (n) say(`유물 전체 강화 ${n}회`); autoAll(); renderTab(); });
   el.querySelectorAll('[data-re]').forEach(b => b.onclick = () => { const n = engSlots(); let sl = S.eng.slice(0, n).indexOf(null); if (sl < 0) sl = 0; if (n) S.eng[sl] = b.dataset.re; renderTab(); });
   el.querySelectorAll('[data-ru]').forEach(b => b.onclick = () => { S.eng[b.dataset.ru] = null; renderTab(); });
+  el.querySelectorAll('[data-tw]').forEach(b => b.onclick = () => { if (b.dataset.tw === 'start') towerStart(); else if (towerRun) towerEnd('포기'); renderTab(); });
   el.querySelectorAll('[data-gk]').forEach(b => b.onclick = () => { S.ui.gtab = b.dataset.gk; renderTab(); });
   el.querySelectorAll('[data-pull]').forEach(b => b.onclick = () => { const [k, n] = b.dataset.pull.split(':'); GACHA[k].pull(+n); });
   el.querySelectorAll('[data-g10]').forEach(b => b.onclick = () => { const k = b.dataset.g10; let ok = 0, n = 0; chkDaily();
@@ -803,8 +843,8 @@ function render(){
   $('phpbar').style.width = Math.max(0, php/p.hp*100) + '%';
   $('expbar').style.width = (S.lv >= LVCAP ? 100 : S.exp/need(S.lv)*100) + '%';
   $('exptext').textContent = S.lv >= LVCAP ? 'MAX' : `${fmt(S.exp)} / ${fmt(need(S.lv))}`;
-  $('mapname').innerHTML = `<b>${MAPS[S.map].name}</b> · 스테이지 ${S.stage}/${STAGES}`;
-  $('mname').textContent = isBoss ? `BOSS (${Math.ceil(bossT)}s)` : MAPS[S.map].mon;
+  $('mapname').innerHTML = towerRun ? `<b>🗼 무한의 탑 ${towerRun.floor}층</b> · 클리어 ${towerRun.cleared}층` : `<b>${MAPS[S.map].name}</b> · 스테이지 ${S.stage}/${STAGES}`;
+  $('mname').textContent = towerRun ? `${towerRun.floor}층 수문장 (${Math.ceil(bossT)}s)` : isBoss ? `BOSS (${Math.ceil(bossT)}s)` : MAPS[S.map].mon;
   $('stageinfo').textContent = `공격 ${fmt(p.atk)} · HP ${fmt(p.hp)} · 방어 ${fmt(p.def)} · 크리 ${(p.crit*100).toFixed(1)}%/${Math.round(p.cdmg*100)}% · 처치 ${S.kills%10}/10` + (jobNodes()[0] ? ` · ${jobNodes()[0].sk[0]} ${Math.max(0,Math.ceil(skCd))}s` : '');
 }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {

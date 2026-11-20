@@ -343,7 +343,9 @@ const mon = () => {
 };
 function spawn(){ const m = mon(); mmax = mhp = m.hp; $('monster').firstChild.textContent = isBoss?'👹':MAPS[S.map].e; }
 function respawnPlayer(){ php = P().hp; }
+let ff = false;   // 따라잡기(fast-forward) 중에는 화면 효과를 만들지 않음
 function float(t, crit, side){
+  if (ff) return;
   const f = document.createElement('div'); f.className = 'f' + (crit?' crit':'');
   f.textContent = t; f.style.left = (side==='p'? 20 : 72) + Math.random()*8 + '%'; f.style.top = 30 + Math.random()*20 + 'px';
   $('floaters').appendChild(f); setTimeout(()=>f.remove(), 800);
@@ -879,7 +881,17 @@ $('reset').onclick = () => {
 };
 
 claimLv(); mergeMax(); autoAll(); offline(); respawnPlayer(); spawn(); renderMaps(); renderTab();
-setInterval(tick, 100);
+// 시계 기준 따라잡기: 알트탭/백그라운드에서 타이머가 느려져도 흐른 시간만큼 전투를 진행한다
+let lastT = Date.now();
+function catchUp(){
+  const now = Date.now(); let n = Math.floor((now - lastT) / (DT * 1000));
+  if (n < 1) return;
+  if (n > 36000) { S.last = lastT; lastT = now; offline(); return; }   // 1시간 넘게 멈췄으면 방치 보상으로 처리
+  lastT += n * DT * 1000; ff = n > 5;
+  try { for (let i = 0; i < n; i++) tick(); } finally { ff = false; }
+}
+setInterval(catchUp, 100);
+document.addEventListener('visibilitychange', catchUp);
 setInterval(render, 100);
 setInterval(renderTab, 1000);
 setInterval(renderMaps, 2000);

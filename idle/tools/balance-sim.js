@@ -3,13 +3,14 @@
 const {chromium}=require('playwright');
 const file=process.argv[2]||'file:///home/user/DONG/idle/index.html';
 const days=+(process.argv[3]||7);
-const activeH=+(process.argv[4]||24);   // 하루 중 실제로 켜 둔 시간 (나머지는 오프라인으로 처리)
+const activeH=+(process.argv[4]||24);
+const analyzeDays=(process.argv[5]||'').split(',').filter(Boolean).map(Number);   // 하루 중 실제로 켜 둔 시간 (나머지는 오프라인으로 처리)
 (async()=>{
   const b=await chromium.launch();const ctx=await b.newContext();
   await ctx.addInitScript(()=>{ window.setInterval=()=>0; });
   const p=await ctx.newPage();const errs=[];p.on('pageerror',e=>errs.push(e.message));
   await p.goto(file);
-  const out=await p.evaluate(({days,activeH})=>{
+  const out=await p.evaluate(({days,activeH,analyzeDays})=>{
     float=()=>{}; let deaths=0,timeouts=0; say=m=>{ if(String(m).includes('쓰러')) deaths++; if(String(m).includes('시간 초과')) timeouts++; };
     const base=Date.now(); let curMin=0; Date.now=()=>base+curMin*60000;
     const sum=o=>Object.values(o).reduce((a,b)=>a+b,0);
@@ -47,7 +48,7 @@ const activeH=+(process.argv[4]||24);   // 하루 중 실제로 켜 둔 시간 (
       for(;;){ const ks=Object.keys(RELICS).filter(k=>relicLv(k)<RELICMAX&&S.rs>=relicCost(k)).sort((a,b)=>relicCost(a)-relicCost(b)); if(!ks.length) break; const k=ks[0]; S.rs-=relicCost(k); (S.relic[k]=S.relic[k]||{lv:0}).lv++; }
       // 💎 뽑기: 장비→펫→동료 10연 순환 (가격 동일)
       const order=['gear','pet','mate']; let guard=0, idx=sets.gear+sets.pet+sets.mate;
-      while(guard++<80){
+      while(guard++<600){
         const t=order[idx%3]; chkDaily();
         if(t==='gear'&&S.gem>=PULL10){ S.gem-=PULL10; for(let i=0;i<10;i++) pullOne(i===9?1:0); }
         else if(t==='pet'&&S.gem>=PET10){ S.gem-=PET10; for(let i=0;i<10;i++) pullPet(i===9?1:0); }
@@ -72,6 +73,24 @@ const activeH=+(process.argv[4]||24);   // 하루 중 실제로 켜 둔 시간 (
       }
     }
     const rows=[], hourRows=[]; let prevSets=0, prevGem=0;
+    const analysis=[];
+    function ablate(){
+      const snap=JSON.stringify(S); const res={};
+      const measure=()=>{ const d=dpsInfo(), q=P(); return {dps:d.total, atk:q.atk, hp:q.hp}; };
+      const base=measure(); res.base={dps:Math.round(base.dps),atk:Math.round(base.atk),hp:Math.round(base.hp)};
+      const test=(name,fn)=>{ S=JSON.parse(snap); fn(); const m=measure(); res[name]={dpsX:+(base.dps/Math.max(1,m.dps)).toFixed(2),hpX:+(base.hp/Math.max(1,m.hp)).toFixed(2)}; S=JSON.parse(snap); };
+      test('뽑기_장비',()=>{ S.items={}; for(const k in S.equip) S.equip[k]=null; });
+      test('뽑기_펫',()=>{ S.pets={}; S.petEq=[null,null]; });
+      test('뽑기_동료',()=>{ S.mates={}; S.party=[null,null,null]; });
+      test('뽑기_전체',()=>{ S.items={}; for(const k in S.equip) S.equip[k]=null; S.pets={}; S.petEq=[null,null]; S.mates={}; S.party=[null,null,null]; });
+      test('능력치업글(메소)',()=>{ for(const k in S.stat) S.stat[k]=0; for(const k in S.gear) S.gear[k]=0; });
+      test('레벨',()=>{ S.lv=1; });
+      test('유물',()=>{ S.relic={}; S.eng=[null,null,null]; });
+      test('직업+스킬',()=>{ S.job=[]; S.sk={}; });
+      test('스탯포인트',()=>{ S.sp={}; });
+      S=JSON.parse(snap);
+      return res;
+    }
     for(let d=1; d<=days; d++){
       // 새 날 시작
       S.daily.d='x'; S.ex.d='x'; S.tower.d='x'; if((d-1)%7===0) S.week.d='x';
@@ -95,10 +114,12 @@ const activeH=+(process.argv[4]||24);   // 하루 중 실제로 켜 둔 시간 (
       rows.push({day:d,lv:S.lv,map:S.map+1,stage:S.stage,clears:sum(S.clear),'tower':S.tower.best,sets10:tot,setsToday:tot-prevSets,gemNow:Math.round(S.gem),
         legend:Object.keys(S.items).filter(k=>kr(k)===4).length,pets:Object.keys(S.pets).length,mates:Object.keys(S.mates).length,dps:Math.round(dpsInfo().total),mineLv:S.mine.lv});
       prevSets=tot;
+      if(analyzeDays.includes(d)) analysis.push({day:d,res:ablate()});
     }
-    return {rows,gemIn,hourRows};
-  },{days,activeH});
+    return {rows,gemIn,hourRows,analysis};
+  },{days,activeH,analyzeDays});
   console.log('-- 첫날 시간대별'); console.log(out.hourRows.map(r=>JSON.stringify(r)).join('\n')); console.log('-- 일별'); console.log(out.rows.map(r=>JSON.stringify(r)).join('\n'));
+  out.analysis.forEach(a=>{console.log('-- 기여도 분석 day',a.day,'(해당 항목을 뺐을 때 전투력/HP가 몇 배 줄어드는지)');for(const k in a.res){console.log('  ',k,JSON.stringify(a.res[k]));}});
   console.log('gem sources (bot-tracked claims):',JSON.stringify(out.gemIn));
   console.log('errors',errs);
   await b.close();

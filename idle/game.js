@@ -14,9 +14,9 @@ const MAPS = [
   {name:'검은 마법사의 성', mon:'검은 마법사',e:'🧙‍♂️', lv:180, hp:1e10,    exp:2e9,   meso:1e9},
 ];
 const GEAR = [
-  {k:'weapon', name:'무기', e:'🗡️', stat:'공격력', per:12},
-  {k:'hat',    name:'모자', e:'🎩', stat:'HP',     per:60},
-  {k:'armor',  name:'갑옷', e:'🛡️', stat:'방어력', per:6},
+  {k:'weapon', name:'무기', e:'🗡️', stat:'공격력%', per:1},
+  {k:'hat',    name:'모자', e:'🎩', stat:'HP%',     per:1},
+  {k:'armor',  name:'갑옷', e:'🛡️', stat:'방어%', per:1},
   {k:'shoes',  name:'신발', e:'👟', stat:'공속%',  per:2},
   {k:'gloves', name:'장갑', e:'🧤', stat:'크리율%', per:.2},
   {k:'cape',   name:'망토', e:'🧥', stat:'피해감소%', per:.3},
@@ -24,7 +24,7 @@ const GEAR = [
   {k:'neck',   name:'목걸이', e:'📿', stat:'메소·경험치%', per:1},
 ];
 // % 단위 부위: 등급별 수치표와 표기
-const PCT = {shoes:'공속 +', gloves:'크리율 +', cape:'받는 피해 -', ring:'크리 데미지 +', neck:'메소·경험치 +'};
+const PCT = {weapon:'공격력 +', hat:'HP +', armor:'방어 +', shoes:'공속 +', gloves:'크리율 +', cape:'받는 피해 -', ring:'크리 데미지 +', neck:'메소·경험치 +'};
 const RARITY = [
   {n:'일반',     c:'#9aa0a6', rate:60, mul:1},
   {n:'레어',     c:'#3b9cff', rate:27, mul:2.5},
@@ -33,9 +33,9 @@ const RARITY = [
   {n:'레전더리', c:'#2ecc71', rate:.5, mul:30},
 ];
 const ITEM = {
-  weapon:{base:70,  names:['목검','강철 검','미스릴 대검','엑스칼리버','검은 마법사의 지팡이']},
-  hat:   {base:350, names:['털모자','철 투구','마법사 모자','용기사 투구','핑크빈 왕관']},
-  armor: {base:35,  names:['천 옷','가죽 갑옷','미스릴 갑옷','용린 갑옷','시간의 갑주']},
+  weapon:{tbl:[15,40,100,220,500],  names:['목검','강철 검','미스릴 대검','엑스칼리버','검은 마법사의 지팡이']},
+  hat:   {tbl:[20,50,120,260,500], names:['털모자','철 투구','마법사 모자','용기사 투구','핑크빈 왕관']},
+  armor: {tbl:[20,50,120,260,500], names:['천 옷','가죽 갑옷','미스릴 갑옷','용린 갑옷','시간의 갑주']},
   shoes: {tbl:[2,4,8,14,22],   names:['고무 신발','가죽 부츠','바람의 신발','천둥 부츠','시공의 신발']},
   gloves:{tbl:[1,2,4,7,12],    names:['면장갑','가죽 장갑','강철 건틀릿','용의 발톱','신의 손길']},
   cape:  {tbl:[2,4,7,11,16],   names:['낡은 망토','가죽 망토','마법사의 망토','불사조 망토','시간의 망토']},
@@ -63,7 +63,7 @@ const MATES = {
 };
 const MATEBT = {red:'받는 피해 -',regen:'HP 회복/초 +',atk:'공격력 +',exp:'경험치 +',meso:'메소 +'};
 const PITY_L = 200, PITY_PM = 160, PITY_E = 20;
-const MATEMAX = 20, PARTY = 3, MATE1 = 5, MATE10 = 45, MATE100 = 400, MATE1000 = 3800;
+const MATEMAX = 20, PARTY = 3, MATE1 = 2, MATE10 = 18, MATE100 = 160, MATE1000 = 1500;
 const mateLv = id => S.mates[id] ? S.mates[id].lv : 0;
 const mateMul = id => 1 + .2*(mateLv(id)-1);
 const mateOwned = () => Object.keys(S.mates).length;
@@ -98,7 +98,7 @@ const PETS = {
   phoenix:{n:'불사조',   e:'🦅', r:4, b:{atk:.40,hp:.30,crit:.05}},
 };
 const PETBT = {atk:'공격력',hp:'HP',meso:'메소',exp:'경험치',crit:'크리율',spd:'공속'};
-const PET1 = 5, PET10 = 45, PET100 = 400, PET1000 = 3800, PETMAX = 20, PETSLOT = 2;
+const PET1 = 2, PET10 = 18, PET100 = 160, PET1000 = 1500, PETMAX = 20, PETSLOT = 2;
 const petLv = id => S.pets[id] ? S.pets[id].lv : 0;
 const petMul = id => 1 + .15*(petLv(id)-1);
 const petTxt = (id, f=1) => Object.entries(PETS[id].b).map(([k,v]) => `${PETBT[k]} +${(v*petMul(id)*f*100).toFixed(f<1?1:0).replace(/\.0$/,'')}%`).join(' · ');
@@ -167,10 +167,10 @@ function jm(){
   return o;
 }
 const modTxt = m => Object.keys(m).map(k => ADD[k] ? `${MODTXT[k]} +${Math.round(m[k]*100)}%` : `${MODTXT[k]} ×${m[k]}`).join(' · ');
-const PULL1 = 5, PULL10 = 45, PULL100 = 400, PULL1000 = 3800, STAGES = 10;
+const PULL1 = 2, PULL10 = 18, PULL100 = 160, PULL1000 = 1500, STAGES = 10;
 const STATS = [
-  {k:'atk',  name:'공격력 단련', desc:'공격력 +5',  base:50,  g:1.09},
-  {k:'hp',   name:'체력 단련',   desc:'최대 HP +40', base:40,  g:1.09},
+  {k:'atk',  name:'공격력 단련', desc:'공격력 +5 (레벨이 높을수록 효과 체감)',  base:50,  g:1.09},
+  {k:'hp',   name:'체력 단련',   desc:'최대 HP +40 (레벨이 높을수록 효과 체감)', base:40,  g:1.09},
   {k:'crit', name:'크리티컬',    desc:'크리율 +0.5% (100% 초과분은 크리 데미지로 전환)', base:200, g:1.11},
   {k:'cdmg', name:'크리 데미지', desc:'크뎀 +2%',    base:300, g:1.10},
   {k:'meso', name:'메소 획득',   desc:'메소 +3%',    base:500, g:1.12},
@@ -264,19 +264,20 @@ function skv(){
 const LVCAP = 200, EXPK = 400;   // 레벨 상한 / 맵 해금 레벨에서 1레벨당 필요한 처치 수(1스테이지 기준)
 const need = lv => Math.floor(30 * Math.pow(lv, 3.0));   // 필요 경험치: 레벨의 거듭제곱 (지수 증가 없음)
 // ---- 난이도 곡선: 맵·스테이지를 하나의 티어 T(0~79)로 보고 몬스터 능력치/보상을 계산 ----
-const TIERHP = {h0:20, g:1.37}, TIERDMG = {d0:3, g:1.19};   // 몬스터 HP / 공격력 성장률 (티어당). 플레이어 전투력이 여러 효과의 곱으로 커지므로 난이도는 곱셈 성장
+const TIERHP = {h0:20, g:1.43}, TIERDMG = {d0:3, g:1.21};   // 몬스터 HP / 공격력 성장률 (티어당). 플레이어 전투력이 여러 효과의 곱으로 커지므로 난이도는 곱셈 성장
 const lvRec = T => { const m = Math.min(MAPS.length-1, Math.floor(T/10)), s = T % 10, a = MAPS[m].lv, b = m+1 < MAPS.length ? MAPS[m+1].lv : LVCAP; return a + (b-a)*s/10; };
 const tierOf = () => S.map * 10 + S.stage - 1;
 const tierExp = T => Math.max(1, need(Math.round(lvRec(T)) + 2) / EXPK);
 const tierMeso = T => 1.5 * (1 + T);
+const statEff = L => Math.pow(L, .8) * 1.6;   // 능력치 레벨의 실제 효과는 체감 증가 (L이 클수록 레벨당 효과 감소)
 const P = () => {
   const J = jm(), B = pb(), M = mt(), R = rv(), K = skv(), H = hold(), E = S.equip, ep = k => (E[k] ? kindPow(E[k]) : 0) + H[k], pg = k => (ep(k) + S.gear[k]*GEAR.find(g=>g.k===k).per) / 100;
   const critRaw = .05 + S.stat.crit*.005 + J.crit + B.crit + pg('gloves') + R.crit + SP('crit') + K.crit;
-  const atk = (10 + S.lv*3 + S.stat.atk*5 + S.gear.weapon*12 + ep('weapon')) * J.atk * B.atk * M.atk * (1 + R.atk) * (1 + SP('atk')) * (1 + K.atk);
+  const atk = (10 + S.lv*3 + statEff(S.stat.atk)*5) * (1 + pg('weapon')) * J.atk * B.atk * M.atk * (1 + R.atk) * (1 + SP('atk')) * (1 + K.atk);
   return {
     atk,
-    hp: (100 + S.lv*20 + S.stat.hp*40 + S.gear.hat*60 + ep('hat')) * J.hp * B.hp * (1 + R.hp) * (1 + SP('hp')) * (1 + K.hp),
-    def: (S.gear.armor*6 + S.lv + ep('armor')) * J.def * (1 + R.def) * (1 + K.def),
+    hp: (100 + S.lv*20 + statEff(S.stat.hp)*40) * (1 + pg('hat')) * J.hp * B.hp * (1 + R.hp) * (1 + SP('hp')) * (1 + K.hp),
+    def: (S.lv*3 + 10) * (1 + pg('armor')) * J.def * (1 + R.def) * (1 + K.def),
     crit: Math.min(1, critRaw), critOver: Math.max(0, critRaw - 1),   // 100% 초과분은 크리 데미지로 전환
     cdmg: 1.5 + S.stat.cdmg*.02 + J.cdmg + pg('ring') + R.cdmg + SP('cdmg') + K.cdmg + Math.max(0, critRaw - 1),
     spd: (1 + (S.gear.shoes*2 + ep('shoes'))/100) * J.spd * B.spd * (1 + R.spd) * (1 + K.spd),
@@ -488,7 +489,7 @@ function pull(n){
 const statTxt = k => PCT[kslot(k)] ? `${PCT[kslot(k)]}${kindPow(k)}%` : `${GEAR.find(g=>g.k===kslot(k)).stat} +${fmt(kindPow(k))}`;
 const HOLD = .35, PETHOLD = .7;
 function hold(){ const o = {weapon:0,hat:0,armor:0,shoes:0,gloves:0,cape:0,ring:0,neck:0}; Object.keys(S.items).forEach(k => { if (S.equip[kslot(k)] !== k) o[kslot(k)] += kindPow(k)*HOLD; }); return o; }
-const holdTxt = H => `공격력 +${fmt(H.weapon)} · HP +${fmt(H.hat)} · 방어 +${fmt(H.armor)} · 공속 +${H.shoes.toFixed(1)}% · 크리율 +${H.gloves.toFixed(1)}% · 피해 -${H.cape.toFixed(1)}% · 크뎀 +${H.ring.toFixed(1)}% · 메소·경험치 +${H.neck.toFixed(1)}%`;
+const holdTxt = H => `공격력 +${H.weapon.toFixed(1)}% · HP +${H.hat.toFixed(1)}% · 방어 +${H.armor.toFixed(1)}% · 공속 +${H.shoes.toFixed(1)}% · 크리율 +${H.gloves.toFixed(1)}% · 피해 -${H.cape.toFixed(1)}% · 크뎀 +${H.ring.toFixed(1)}% · 메소·경험치 +${H.neck.toFixed(1)}%`;
 const itemHtml = k => `<span style="color:${RARITY[kr(k)].c};font-weight:700">[${RARITY[kr(k)].n}] ${kindName(k)}${starOf(k) ? ' ' + '★'.repeat(starOf(k)) : ''}</span> <small>${statTxt(k)}</small>`;
 
 // DPS 추정 (내 공격 + 스킬 / 동료 / 펫)

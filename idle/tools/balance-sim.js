@@ -77,8 +77,9 @@ const analyzeDays=(process.argv[5]||'').split(',').filter(Boolean).map(Number); 
     function ablate(){
       const snap=JSON.stringify(S); const res={};
       const measure=()=>{ const d=dpsInfo(), q=P(); return {dps:d.total, atk:q.atk, hp:q.hp}; };
-      const base=measure(); res.base={dps:Math.round(base.dps),atk:Math.round(base.atk),hp:Math.round(base.hp)};
+      const base=measure(); { const D=dpsInfo(); res.base={dps:Math.round(base.dps),atk:Math.round(base.atk),hp:Math.round(base.hp),'내%':Math.round(D.me/D.total*100),'동료%':Math.round(D.mate/D.total*100),'펫%':Math.round(D.pet/D.total*100)}; }
       const test=(name,fn)=>{ S=JSON.parse(snap); fn(); const m=measure(); res[name]={dpsX:+(base.dps/Math.max(1,m.dps)).toFixed(2),hpX:+(base.hp/Math.max(1,m.hp)).toFixed(2)}; S=JSON.parse(snap); };
+      { S=JSON.parse(snap); S.mates={kai:{lv:1,sh:0},leon:{lv:1,sh:0},toby:{lv:1,sh:0}}; S.party=['kai','leon','toby']; S.pets={slime:{lv:1,sh:0}}; S.petEq=['slime',null]; const D=dpsInfo(); res['약한파티(일반 동료3·펫1)']={'내%':Math.round(D.me/D.total*100),'동료%':Math.round(D.mate/D.total*100),'펫%':Math.round(D.pet/D.total*100)}; S=JSON.parse(snap); }
       test('뽑기_장비',()=>{ S.items={}; for(const k in S.equip) S.equip[k]=null; });
       test('뽑기_펫',()=>{ S.pets={}; S.petEq=[null,null]; });
       test('뽑기_동료',()=>{ S.mates={}; S.party=[null,null,null]; });

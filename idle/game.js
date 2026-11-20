@@ -61,6 +61,9 @@ const MATES = {
   irene:{n:'아이린', e:'⚡', r:3, role:'마검사',   cd:2,  m:8,   b:{atk:.20}},
   nero: {n:'네로',   e:'🌑', r:4, role:'암흑기사', cd:2.5,m:18,  b:{atk:.35,red:.12}},
 };
+// 동료 공격은 등급별 "초당 공격력 배수"로 통일 (등급 간 격차를 9배 이내로: 일반도 의미 있게)
+const MPS = [0.7, 1.2, 2.0, 3.2, 5.0];
+Object.values(MATES).forEach(x => { if (x.cd) x.m = MPS[x.r] * x.cd; });
 const MATEBT = {red:'받는 피해 -',regen:'HP 회복/초 +',atk:'공격력 +',exp:'경험치 +',meso:'메소 +'};
 const PITY_L = 200, PITY_PM = 160, PITY_E = 20;
 const MATEMAX = 20, PARTY = 3, MATE1 = 2, MATE10 = 18, MATE100 = 160, MATE1000 = 1500;
@@ -76,7 +79,7 @@ function mt(){
   return o;
 }
 const mateTxt = (id, f=1) => { const m = MATES[id], x = [];
-  if (m.cd) x.push(`${m.cd}초마다 공격력 ×${(m.m*mateMul(id)).toFixed(2)} 공격`);
+  if (m.cd) x.push(`${m.cd}초마다 공격력 ×${(m.m*MATEPOW*mateMul(id)).toFixed(2)} 공격 (크리 적용)`);
   for (const k in (m.b||{})) x.push(MATEBT[k] + (m.b[k]*mateMul(id)*f*100).toFixed(1).replace(/\.0$/,'') + '%');
   return x.join(' · '); };
 const PETS = {
@@ -302,6 +305,8 @@ function repeatBossGem(){
   const g = Math.min(BGCAP - S.bg.n, Math.max(1, Math.floor(bossGem(S.map, S.stage) / 3))); if (g <= 0) return 0;
   S.bg.n += g; return g;
 }
+const critAvg = p => 1 + p.crit * (p.cdmg - 1);
+const MATEPOW = .25, PETPOW = .35;   // 동료/펫 공격 전체 배율 (크리 반영 후 내 DPS와의 비중 조정용)   // 동료·펫 공격도 내 크리티컬 효과를 받는다
 const mCd = {};
 let petCd = 2, mhp, mmax, php, isBoss = false, bossT = 0, atkCd = 0, monCd = 0, skCd = 3;
 // ---- 무한의 탑: 하루 입장권으로 보스를 층층이 오르는 도전 콘텐츠 ----
@@ -391,13 +396,13 @@ function tick(){
   S.party.forEach(id => { if (!id || !S.mates[id] || !MATES[id].cd) return;
     mCd[id] = (mCd[id] ?? MATES[id].cd) - DT;
     if (mCd[id] <= 0) { mCd[id] = MATES[id].cd;
-      const d = p.atk * MATES[id].m * mateMul(id) * p.rmate * (.9 + Math.random()*.2);
+      const d = p.atk * MATES[id].m * mateMul(id) * p.rmate * critAvg(p) * MATEPOW * (.9 + Math.random()*.2);
       mhp -= d; float(MATES[id].e + fmt(d), false, 'm'); if (mhp <= 0) kill(); } });
   petCd -= DT;
   if (petCd <= 0) {
     petCd = 2;
     S.petEq.forEach(id => { if (!id || !S.pets[id]) return;
-      const d = p.atk * (.15 + .1*PETS[id].r) * petMul(id) * p.rpet;
+      const d = p.atk * (.5 + .4*PETS[id].r) * petMul(id) * p.rpet * critAvg(p) * PETPOW;
       mhp -= d; float(PETS[id].e + fmt(d), false, 'm'); });
     if (mhp <= 0) kill();
   }
@@ -497,8 +502,8 @@ function dpsInfo(){
   const p = P(), root = jobNodes()[0];
   const me = p.atk * (1 + p.crit*(p.cdmg-1)) * p.spd + (root ? p.atk*root.sk[2]*root.sk[3]*p.skill/root.sk[1] : 0);
   let mate = 0, pet = 0;
-  S.party.forEach(id => { if (id && S.mates[id] && MATES[id].cd) mate += p.atk*MATES[id].m*mateMul(id)*p.rmate/MATES[id].cd; });
-  S.petEq.forEach(id => { if (id && S.pets[id]) pet += p.atk*(.15+.1*PETS[id].r)*petMul(id)*p.rpet/2; });
+  S.party.forEach(id => { if (id && S.mates[id] && MATES[id].cd) mate += p.atk*MATES[id].m*mateMul(id)*p.rmate*critAvg(p)*MATEPOW/MATES[id].cd; });
+  S.petEq.forEach(id => { if (id && S.pets[id]) pet += p.atk*(.5+.4*PETS[id].r)*petMul(id)*p.rpet*critAvg(p)*PETPOW/2; });
   return {me, mate, pet, total: me+mate+pet};
 }
 // mate gacha

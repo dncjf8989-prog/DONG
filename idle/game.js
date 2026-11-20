@@ -63,7 +63,7 @@ const MATES = {
 };
 const MATEBT = {red:'받는 피해 -',regen:'HP 회복/초 +',atk:'공격력 +',exp:'경험치 +',meso:'메소 +'};
 const PITY_L = 200, PITY_PM = 160, PITY_E = 20;
-const MATEMAX = 20, PARTY = 3, MATE1 = 10, MATE10 = 90, MATE100 = 800, MATE1000 = 7600;
+const MATEMAX = 20, PARTY = 3, MATE1 = 5, MATE10 = 45, MATE100 = 400, MATE1000 = 3800;
 const mateLv = id => S.mates[id] ? S.mates[id].lv : 0;
 const mateMul = id => 1 + .2*(mateLv(id)-1);
 const mateOwned = () => Object.keys(S.mates).length;
@@ -98,7 +98,7 @@ const PETS = {
   phoenix:{n:'불사조',   e:'🦅', r:4, b:{atk:.40,hp:.30,crit:.05}},
 };
 const PETBT = {atk:'공격력',hp:'HP',meso:'메소',exp:'경험치',crit:'크리율',spd:'공속'};
-const PET1 = 10, PET10 = 90, PET100 = 800, PET1000 = 7600, PETMAX = 20, PETSLOT = 2;
+const PET1 = 5, PET10 = 45, PET100 = 400, PET1000 = 3800, PETMAX = 20, PETSLOT = 2;
 const petLv = id => S.pets[id] ? S.pets[id].lv : 0;
 const petMul = id => 1 + .15*(petLv(id)-1);
 const petTxt = (id, f=1) => Object.entries(PETS[id].b).map(([k,v]) => `${PETBT[k]} +${(v*petMul(id)*f*100).toFixed(f<1?1:0).replace(/\.0$/,'')}%`).join(' · ');
@@ -264,7 +264,7 @@ function skv(){
 const LVCAP = 200, EXPK = 400;   // 레벨 상한 / 맵 해금 레벨에서 1레벨당 필요한 처치 수(1스테이지 기준)
 const need = lv => Math.floor(30 * Math.pow(lv, 3.0));   // 필요 경험치: 레벨의 거듭제곱 (지수 증가 없음)
 // ---- 난이도 곡선: 맵·스테이지를 하나의 티어 T(0~79)로 보고 몬스터 능력치/보상을 계산 ----
-const TIERHP = {h0:20, g:1.32}, TIERDMG = {d0:3, g:1.17};   // 몬스터 HP / 공격력 성장률 (티어당). 플레이어 전투력이 여러 효과의 곱으로 커지므로 난이도는 곱셈 성장
+const TIERHP = {h0:20, g:1.37}, TIERDMG = {d0:3, g:1.19};   // 몬스터 HP / 공격력 성장률 (티어당). 플레이어 전투력이 여러 효과의 곱으로 커지므로 난이도는 곱셈 성장
 const lvRec = T => { const m = Math.min(MAPS.length-1, Math.floor(T/10)), s = T % 10, a = MAPS[m].lv, b = m+1 < MAPS.length ? MAPS[m+1].lv : LVCAP; return a + (b-a)*s/10; };
 const tierOf = () => S.map * 10 + S.stage - 1;
 const tierExp = T => Math.max(1, need(Math.round(lvRec(T)) + 2) / EXPK);
@@ -294,7 +294,13 @@ const gearRate = k => Math.max(.15, 1 - S.gear[k]*.02);
 // combat state
 // 스테이지 난이도 / 보상 성장률 (스테이지당 배수)
 const bossTime = st => Math.max(15, 32 - st*2) + rv().boss;
-const bossGem = (map, st) => Math.max(1, Math.round((1 + map) * (1 + .3*(st-1))));
+const bossGem = (map, st) => Math.max(1, Math.round((2 + map) * (1 + .3*(st-1))));
+const BGCAP = 15;   // 반복 보스 처치로 얻는 💎는 시간당 최대 15개
+function repeatBossGem(){
+  const h = Math.floor(Date.now() / 3.6e6); if (!S.bg || S.bg.h !== h) S.bg = {h, n:0};
+  const g = Math.min(BGCAP - S.bg.n, Math.max(1, Math.floor(bossGem(S.map, S.stage) / 3))); if (g <= 0) return 0;
+  S.bg.n += g; return g;
+}
 const mCd = {};
 let petCd = 2, mhp, mmax, php, isBoss = false, bossT = 0, atkCd = 0, monCd = 0, skCd = 3;
 // ---- 무한의 탑: 하루 입장권으로 보스를 층층이 오르는 도전 콘텐츠 ----
@@ -306,8 +312,17 @@ const twReward = F => ({rs: 1 + Math.floor(F/5), meso: tierMeso(twTier(F)) * 30,
 function towerStart(){
   chkDaily();
   if (towerRun || S.lv < TW.unlock || S.tower.tk < 1) return;
-  S.tower.tk--; towerRun = {floor: S.tower.best + 1, cleared: 0};
+  S.tower.tk--; S.daily.tower = (S.daily.tower||0) + 1; towerRun = {floor: S.tower.best + 1, cleared: 0};
   isBoss = true; bossT = TW.time + rv().boss; rd = 1; atkCd = 0; monCd = 1; respawnPlayer(); spawn(); say('🗼 무한의 탑 도전!');
+}
+// 소탕: 입장권 1장으로 최고 기록까지의 층을 한 번에 클리어 (반복 보상)
+function towerSweep(){
+  chkDaily();
+  if (towerRun || S.lv < TW.unlock || S.tower.tk < 1 || S.tower.best < 5) return;
+  const B = S.tower.best; let rs = 0; for (let F = 1; F <= B; F++) rs += twReward(F).rs;
+  rs = Math.floor(rs / 2); const gem = Math.floor(B / 2);
+  S.tower.tk--; S.daily.tower = (S.daily.tower||0) + 1; S.rs += rs; S.gem += gem;
+  say(`🗼 ${B}층까지 소탕! 💎+${gem} · 💠+${rs}`);
 }
 function towerEnd(msg){
   const c = towerRun ? towerRun.cleared : 0; towerRun = null; isBoss = false; S.kills = 0;
@@ -346,7 +361,7 @@ function kill(){
     if (S.tk % 1000 === 0) { const g = 5 + S.map*2 + S.stage; S.gem += g; say(`🎁 보석 상자! 💎+${g}`); }
     if (Math.random() < .003) { const g = 1 + (S.map >> 1) + (S.stage >> 1); S.gem += g; float('💎+' + g, true, 'm'); } }
   if (isBoss) {
-    const first0 = (S.clear[S.map]||0) < S.stage, g = first0 ? bossGem(S.map, S.stage) : (Math.random() < .1 ? 1 : 0); S.gem += g; isBoss = false; S.best = Math.max(S.best, S.map);
+    const first0 = (S.clear[S.map]||0) < S.stage, g = first0 ? bossGem(S.map, S.stage) : repeatBossGem(); S.gem += g; isBoss = false; S.best = Math.max(S.best, S.map);
     const first = (S.clear[S.map]||0) < S.stage;
     if (first) { S.clear[S.map] = S.stage; say(`스테이지 ${S.stage} 클리어! 💎+${g} (첫 클리어)`); }
     else if (g) say(`보스 처치! 💎+${g}`);
@@ -412,9 +427,9 @@ function offline(){
   if (sec < 60) return;
   const p = P(), m = MAPS[S.map];
   const dps = p.atk * (1 + p.crit*(p.cdmg-1)) * p.spd;
-  const mm = mon0(), kills = Math.floor(sec * dps / mm.hp * .5);
-  const og = Math.floor(sec/600); S.gem += og;
-  if (kills > 0) { gain(kills*mm.exp*.5, kills*mm.meso*.5); say(`방치 보상: ${Math.floor(sec/60)}분 · ${fmt(kills)}마리 처치 · 💎${og}`); }
+  const mm = mon0(), rate = Math.min(1 / 1.2, dps / mm.hp), kills = Math.floor(sec * rate * .5);   // 온라인 최대 처치 속도(1.2초/마리)의 50%까지
+  const og = Math.floor(sec/300); S.gem += og;
+  if (kills > 0) { gain(kills*mm.exp, kills*mm.meso); say(`방치 보상: ${Math.floor(sec/60)}분 · ${fmt(kills)}마리 처치 · 💎${og}`); }
 }
 
 function say(t){ $('msg').textContent = t; clearTimeout(say.t); say.t = setTimeout(()=>$('msg').textContent='', 4000); }
@@ -463,7 +478,7 @@ function pullOne(minR){
 function pull(n){
   const cost = n === 1000 ? PULL1000 : n === 100 ? PULL100 : n === 10 ? PULL10 : PULL1;
   if (S.gem < cost) return;
-  S.gem -= cost; S.lastPull = [];
+  S.gem -= cost; chkDaily(); S.daily.pull += n; S.week.pull += n; S.lastPull = [];
   for (let i = 0; i < n; i++) S.lastPull.push(pullOne(n >= 10 && i % 10 === 9 ? 1 : 0));
   mergeMax(); autoAll();
   renderTab();
@@ -498,7 +513,7 @@ function pullMate(minR){
 function recruit(n){
   const cost = n === 1000 ? MATE1000 : n === 100 ? MATE100 : n === 10 ? MATE10 : MATE1;
   if (S.gem < cost) return;
-  S.gem -= cost; S.lastMate = [];
+  S.gem -= cost; chkDaily(); S.daily.pull += n; S.week.pull += n; S.lastMate = [];
   for (let i = 0; i < n; i++) S.lastMate.push(pullMate(n >= 10 && i % 10 === 9 ? 1 : 0));
   autoAll();
   renderTab();
@@ -518,7 +533,7 @@ function pullPet(minR){
 function eggs(n){
   const cost = n === 1000 ? PET1000 : n === 100 ? PET100 : n === 10 ? PET10 : PET1;
   if (S.gem < cost) return;
-  S.gem -= cost; S.lastEgg = [];
+  S.gem -= cost; chkDaily(); S.daily.pull += n; S.week.pull += n; S.lastEgg = [];
   for (let i = 0; i < n; i++) S.lastEgg.push(pullPet(n >= 10 && i % 10 === 9 ? 1 : 0));
   autoAll();
   renderTab();
@@ -527,28 +542,31 @@ function eggs(n){
 const today = () => new Date().toLocaleDateString('sv');
 const weekKey = () => { const d = new Date(); d.setDate(d.getDate() - (d.getDay()+6)%7); return d.toLocaleDateString('sv'); };
 function chkDaily(){
-  if (S.daily.d !== today()) S.daily = {d:today(), kills:0, boss:0, enh:0, claim:{}};
-  if (S.week.d !== weekKey()) S.week = {d:weekKey(), kills:0, boss:0, enh:0, claim:{}};
+  if (S.daily.d !== today()) S.daily = {d:today(), kills:0, boss:0, enh:0, pull:0, tower:0, claim:{}};
+  if (S.week.d !== weekKey()) S.week = {d:weekKey(), kills:0, boss:0, enh:0, pull:0, claim:{}};
   if (S.ex.d !== today()) S.ex = {d:today(), n:0};
   if (S.tower.d !== today()) { S.tower.d = today(); S.tower.tk = TW.tickets; }
 }
 const WQ = [
-  {id:'kills', name:'몬스터 3,000마리 처치', goal:3000, gem:40},
-  {id:'boss',  name:'보스 40회 처치',        goal:40,   gem:50},
-  {id:'enh',   name:'장비 강화 100회 시도',  goal:100,  gem:30},
+  {id:'kills', name:'몬스터 3,000마리 처치', goal:3000, gem:100},
+  {id:'boss',  name:'보스 40회 처치',        goal:40,   gem:120},
+  {id:'enh',   name:'장비 강화 100회 시도',  goal:100,  gem:80},
+  {id:'pull',  name:'뽑기 100회',            goal:100,  gem:60},
 ];
 // 보석 광산: 메소로 확장, 자리를 비운 동안에도 생산 (최대 8시간 보관)
 const MINEMAX = 25, MINECAP = 8*3600;
-const mineRate = () => S.mine.lv * .25;   // 시간당 💎
+const mineRate = () => S.mine.lv * .6;   // 시간당 💎
 const minePending = () => S.mine.lv ? Math.floor(Math.min(MINECAP, (Date.now() - S.mine.t)/1000) * mineRate() / 3600) : 0;
 const mineCost = () => Math.floor(20000 * Math.pow(1 + S.mine.lv, 2));
 // 메소→보석 교환소 (하루 10회, 살수록 가격 상승)
-const EXMAX = 10;
-const exPrice = () => Math.floor((2000 + S.lv*300) * (1 + .25 * S.ex.n));
+const EXMAX = 20;
+const exPrice = () => Math.floor((1000 + S.lv*150) * (1 + .25 * S.ex.n));
 const DQ = [
-  {id:'kills', name:'몬스터 200마리 처치', goal:200, gem:10},
-  {id:'boss',  name:'보스 5회 처치',       goal:5,   gem:15},
-  {id:'enh',   name:'장비 강화 10회 시도', goal:10,  gem:10},
+  {id:'kills', name:'몬스터 200마리 처치', goal:200, gem:20},
+  {id:'boss',  name:'보스 5회 처치',       goal:5,   gem:30},
+  {id:'enh',   name:'장비 강화 10회 시도', goal:10,  gem:20},
+  {id:'pull',  name:'뽑기 10회',           goal:10,  gem:15},
+  {id:'tower', name:'무한의 탑 1회 도전·소탕', goal:1, gem:15},
 ];
 const sum = o => Object.values(o).reduce((a,b)=>a+b, 0);
 const ACH = [];
@@ -699,6 +717,7 @@ function renderTab(){
       h += `<div class="row"><div><b>도전 중: ${towerRun.floor}층</b><small>이번 도전 ${towerRun.cleared}층 클리어 · 쓰러지거나 시간이 다 되면 끝납니다</small></div><button data-tw="quit">포기</button></div>`;
     } else {
       h += `<div class="row"><div><b>${F}층부터 도전</b><small>수문장 HP ${fmt(st.hp)} · 공격 ${fmt(st.dmg)} · 제한 ${TW.time}초</small></div><button data-tw="start" ${S.tower.tk >= 1 ? '' : 'disabled'}>도전 🎟️</button></div>`;
+      h += `<div class="row"><div><b>소탕</b><small>1~${S.tower.best}층을 한 번에 · 💎${Math.floor(S.tower.best/2)} · 💠 보상 (입장권 1장, 5층 이상)</small></div><button data-tw="sweep" ${S.tower.tk >= 1 && S.tower.best >= 5 ? '' : 'disabled'}>소탕 🎟️</button></div>`;
     }
     h += `<hr><b>보상</b><small>· 층 클리어마다 💠 유물 조각 (${F}층: ${rw.rs}개) 과 메소 (${fmt(rw.meso)})<br>· <b>최고 기록을 넘긴 5의 배수 층</b>은 💎 추가 (예: ${Math.ceil(F/5)*5}층 → ${twReward(Math.ceil(F/5)*5).gem}개)<br>· 한 번 입장하면 쓰러질 때까지 계속 올라갑니다 (입장권 1장)<br>· 도전 중에는 사냥터가 멈춥니다</small>`;
   } else if (tab === 'skill') {
@@ -727,7 +746,7 @@ function renderTab(){
   } else if (tab === 'reward') {
     chkDaily();
     h += `<div class="row"><b>💎 보석 얻는 법</b><div>💎 ${S.gem}</div></div>`;
-    h += `<small>· 스테이지 첫 클리어 시 보스 💎 (스테이지가 높을수록 ↑, 반복 처치는 10% 확률로 1개)<br>· 몬스터 처치 시 0.3% 드롭 / 1000마리마다 🎁 보석 상자<br>· 보석 광산 · 메소 교환소 (반복) · 출석 · 일일/주간 퀘스트 · 업적<br>· 자리 비운 10분마다 💎1 (최대 8시간)</small><hr>`;
+    h += `<small>· 스테이지 첫 클리어 시 보스 💎 (스테이지가 높을수록 ↑)<br>· 보스 반복 처치: 처치당 💎 (시간당 최대 ${BGCAP}개)<br>· 몬스터 처치 시 0.3% 드롭 / 1000마리마다 🎁 보석 상자<br>· 보석 광산 · 메소 교환소 (하루 ${EXMAX}회) · 무한의 탑(신기록·소탕)<br>· 출석 · 일일/주간 퀘스트 · 업적<br>· 자리 비운 5분마다 💎1 (최대 8시간)</small><hr>`;
     // 보석 광산
     const pend = minePending(), mc = mineCost();
     h += `<div class="row"><div><b>⛏️ 보석 광산 Lv.${S.mine.lv}/${MINEMAX}</b><small>시간당 💎${mineRate().toFixed(1)} · 쌓인 보석 💎${pend} (최대 ${(mineRate()*8).toFixed(0)})</small></div>
@@ -735,7 +754,7 @@ function renderTab(){
     // 교환소
     h += `<div class="row"><div><b>💱 메소 교환소</b><small>💎1 = 💰${fmt(exPrice())} · 오늘 ${S.ex.n}/${EXMAX}</small></div><button data-mine="ex" ${S.ex.n>=EXMAX||S.meso<exPrice()?'disabled':''}>교환</button></div>`;
     h += `<small>🎁 다음 보석 상자까지 ${1000 - S.tk % 1000}마리</small><hr>`;
-    h += `<div class="row"><div><b>출석 보상</b><small>하루 한 번 💎20</small></div><button data-claim="login" ${S.daily.login?'disabled':''}>${S.daily.login?'완료':'받기 💎20'}</button></div>`;
+    h += `<div class="row"><div><b>출석 보상</b><small>하루 한 번 💎30</small></div><button data-claim="login" ${S.daily.login?'disabled':''}>${S.daily.login?'완료':'받기 💎30'}</button></div>`;
     h += '<hr><b>일일 퀘스트</b>';
 
     DQ.forEach(q => { const c = Math.min(S.daily[q.id]||0, q.goal), done = c >= q.goal, got = S.daily.claim[q.id];
@@ -784,7 +803,7 @@ function renderTab(){
     else if (t === 'ex') { const c = exPrice(); if (S.ex.n < EXMAX && S.meso >= c) { S.meso -= c; S.ex.n++; S.gem++; } }
     renderTab(); });
   el.querySelectorAll('[data-claim]').forEach(b => b.onclick = () => { const [t, id] = b.dataset.claim.split(':'); chkDaily();
-    if (t === 'login' && !S.daily.login) { S.daily.login = true; S.gem += 20; }
+    if (t === 'login' && !S.daily.login) { S.daily.login = true; S.gem += 30; }
     else if (t === 'q') { const q = DQ.find(x=>x.id===id); if (S.daily[id] >= q.goal && !S.daily.claim[id]) { S.daily.claim[id] = true; S.gem += q.gem; } }
     else if (t === 'w') { const q = WQ.find(x=>x.id===id); if (S.week[id] >= q.goal && !S.week.claim[id]) { S.week.claim[id] = true; S.gem += q.gem; } }
     else if (t === 'a') { const a = ACH.find(x=>x.id===id); if (a.cur() >= a.goal && !S.ach[id]) { S.ach[id] = true; S.gem += a.gem; } }
@@ -803,7 +822,7 @@ function renderTab(){
     if (n) say(`유물 전체 강화 ${n}회`); autoAll(); renderTab(); });
   el.querySelectorAll('[data-re]').forEach(b => b.onclick = () => { const n = engSlots(); let sl = S.eng.slice(0, n).indexOf(null); if (sl < 0) sl = 0; if (n) S.eng[sl] = b.dataset.re; renderTab(); });
   el.querySelectorAll('[data-ru]').forEach(b => b.onclick = () => { S.eng[b.dataset.ru] = null; renderTab(); });
-  el.querySelectorAll('[data-tw]').forEach(b => b.onclick = () => { if (b.dataset.tw === 'start') towerStart(); else if (towerRun) towerEnd('포기'); renderTab(); });
+  el.querySelectorAll('[data-tw]').forEach(b => b.onclick = () => { if (b.dataset.tw === 'start') towerStart(); else if (b.dataset.tw === 'sweep') towerSweep(); else if (towerRun) towerEnd('포기'); renderTab(); });
   el.querySelectorAll('[data-gk]').forEach(b => b.onclick = () => { S.ui.gtab = b.dataset.gk; renderTab(); });
   el.querySelectorAll('[data-pull]').forEach(b => b.onclick = () => { const [k, n] = b.dataset.pull.split(':'); GACHA[k].pull(+n); });
   el.querySelectorAll('[data-g10]').forEach(b => b.onclick = () => { const k = b.dataset.g10; let ok = 0, n = 0; chkDaily();

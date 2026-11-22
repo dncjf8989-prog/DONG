@@ -130,16 +130,18 @@ const RELICS = {
   pet:  {n:'야생의 부름',   e:'🐾', per:.03,  t:'펫 공격',     pct:1},
   boss: {n:'시간의 모래시계',e:'⏳', per:.5,   t:'보스 제한시간', pct:0},
 };
-const RELICMAX = 30, ENGSLOT = 3, ENGLV = [20, 50, 100];
+const RELICMAX = 50, RELICBASE = 30, ENGSLOT = 3, ENGLV = [20, 50, 100];   // Lv.31~50은 "각성" 구간: 비용 2배, 레벨당 효과 절반
+const relicEffLv = lv => lv <= RELICBASE ? lv : RELICBASE + (lv - RELICBASE) * .5;
+const RXRATE = 20, RXMAX = 30;   // 유물 조각 → 💎 환전 (💠20 = 💎1, 하루 30개)
 const relicLv = k => S.relic[k] ? S.relic[k].lv : 0;
-const relicCost = k => relicLv(k) === 0 ? 10 : 3 + Math.ceil(relicLv(k)*1.5);
+const relicCost = k => relicLv(k) === 0 ? 10 : (3 + Math.ceil(relicLv(k)*1.5)) * (relicLv(k) >= RELICBASE ? 2 : 1);
 const engSlots = () => ENGLV.filter(l => S.lv >= l).length;
 function rv(){   // 유물 효과 합계 (각인한 유물은 ×2)
   const o = {atk:0,hp:0,def:0,crit:0,cdmg:0,meso:0,exp:0,spd:0,skill:0,mate:0,pet:0,boss:0};
-  for (const k in S.relic) if (RELICS[k]) o[k] += RELICS[k].per * S.relic[k].lv * (S.eng.includes(k) ? 2 : 1);
+  for (const k in S.relic) if (RELICS[k]) o[k] += RELICS[k].per * relicEffLv(S.relic[k].lv) * (S.eng.includes(k) ? 2 : 1);
   return o;
 }
-const relicTxt = k => { const r = RELICS[k], v = r.per * relicLv(k) * (S.eng.includes(k) ? 2 : 1); return r.pct ? `${r.t} +${(v*100).toFixed(1).replace(/\.0$/,'')}%` : `${r.t} +${v.toFixed(1).replace(/\.0$/,'')}초`; };
+const relicTxt = k => { const r = RELICS[k], v = r.per * relicEffLv(relicLv(k)) * (S.eng.includes(k) ? 2 : 1); return r.pct ? `${r.t} +${(v*100).toFixed(1).replace(/\.0$/,'')}%` : `${r.t} +${v.toFixed(1).replace(/\.0$/,'')}초`; };
 const JOB_LV = [10, 40, 80, 130];
 // m: 배수(atk,hp,def,spd,meso,skill) / 가산(crit,cdmg,regen)
 const TREE = {
@@ -180,7 +182,7 @@ const STATS = [
 ];
 
 const fresh = () => ({lv:1,exp:0,meso:0,gem:0,map:0,kills:0,stat:{atk:0,hp:0,crit:0,cdmg:0,meso:0},
-  gear:{weapon:0,hat:0,armor:0,shoes:0,gloves:0,cape:0,ring:0,neck:0},best:0,last:Date.now(),stage:1,clear:{},ui:{detail:false,missing:false,auto:true},tower:{best:0,tk:3,d:''},sk:{},sp:{},lr:0,relic:{},rs:0,eng:[null,null,null],daily:{},ach:{},tk:0,week:{},mine:{lv:0,t:0},ex:{d:'',n:0},job:[],pets:{},mates:{},party:[null,null,null],mpity:0,mpulls:0,lastMate:[],petEq:[null,null],ppity:0,ppulls:0,lastEgg:[],items:{},equip:{weapon:null,hat:null,armor:null,shoes:null,gloves:null,cape:null,ring:null,neck:null},pity:0,pity10:0,pulls:0,lastPull:[]});
+  gear:{weapon:0,hat:0,armor:0,shoes:0,gloves:0,cape:0,ring:0,neck:0},best:0,last:Date.now(),stage:1,clear:{},ui:{detail:false,missing:false,auto:true},tower:{best:0,tk:3,d:''},rx:{d:'',n:0},sk:{},sp:{},lr:0,relic:{},rs:0,eng:[null,null,null],daily:{},ach:{},tk:0,week:{},mine:{lv:0,t:0},ex:{d:'',n:0},job:[],pets:{},mates:{},party:[null,null,null],mpity:0,mpulls:0,lastMate:[],petEq:[null,null],ppity:0,ppulls:0,lastEgg:[],items:{},equip:{weapon:null,hat:null,armor:null,shoes:null,gloves:null,cape:null,ring:null,neck:null},pity:0,pity10:0,pulls:0,lastPull:[]});
 let S = fresh();
 try { const raw = localStorage.getItem('mapleIdle'); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch(e){}
 if (Array.isArray(S.inv) || Object.values(S.equip||{}).some(v => v && typeof v === 'object')) {   // 구버전 장비 변환
@@ -195,6 +197,7 @@ if (Array.isArray(S.inv) || Object.values(S.equip||{}).some(v => v && typeof v =
 }
 S.ui = Object.assign({detail:false,missing:false,auto:true}, S.ui);
 S.tower = Object.assign({best:0,tk:3,d:''}, S.tower);
+S.rx = Object.assign({d:'',n:0}, S.rx);
 S.sp = S.sp || {}; S.sk = S.sk || {};
 for (const k of Object.keys(S.relic)) if (!RELICS[k]) delete S.relic[k];
 S.eng = [0,1,2].map(i => S.relic[S.eng[i]] ? S.eng[i] : null);
@@ -553,6 +556,7 @@ function chkDaily(){
   if (S.daily.d !== today()) S.daily = {d:today(), kills:0, boss:0, enh:0, pull:0, tower:0, claim:{}};
   if (S.week.d !== weekKey()) S.week = {d:weekKey(), kills:0, boss:0, enh:0, pull:0, claim:{}};
   if (S.ex.d !== today()) S.ex = {d:today(), n:0};
+  if (S.rx.d !== today()) S.rx = {d:today(), n:0};
   if (S.tower.d !== today()) { S.tower.d = today(); S.tower.tk = TW.tickets; }
 }
 const WQ = [
@@ -741,7 +745,9 @@ function renderTab(){
   } else if (tab === 'relic') {
     const det = S.ui.detail, ks = Object.keys(RELICS), n = engSlots();
     const canAny = ks.some(k => relicLv(k) < RELICMAX && S.rs >= relicCost(k));
-    h += `<div class="row"><div><b>💠 유물 조각 ${fmt(S.rs)}</b><small>보스를 잡으면 얻습니다 (스테이지↑, 첫 클리어 3배)</small></div></div>`;
+    chkDaily();
+    h += `<div class="row"><div><b>💠 유물 조각 ${fmt(S.rs)}</b><small>보스·탑·레벨 보상으로 얻습니다 · Lv.${RELICBASE} 이후는 "각성"(비용 2배, 레벨당 효과 절반)</small></div></div>`;
+    h += `<div class="row"><div><b>💱 조각 환전</b><small>💠${RXRATE} = 💎1 · 오늘 ${S.rx.n}/${RXMAX}</small></div><span><button data-rx="1" ${S.rs >= RXRATE && S.rx.n < RXMAX ? '' : 'disabled'}>×1</button> <button data-rx="max" ${S.rs >= RXRATE && S.rx.n < RXMAX ? '' : 'disabled'}>가능한 만큼</button></span></div>`;
     h += `<div class="row"><span><button data-rall="1" ${canAny?'':'disabled'}>전체 강화</button> <button data-ui="auto">자동 각인 ${S.ui.auto?'ON':'OFF'}</button> <button data-ui="detail">${det?'간단히':'자세히'}</button></span></div>`;
     h += '<b>각인 슬롯</b> <small>각인한 유물은 효과 2배</small>';
     for (let i = 0; i < ENGSLOT; i++) { const k = S.eng[i];
@@ -749,7 +755,7 @@ function renderTab(){
       h += `<div class="row c"><div>${k ? RELICS[k].e + ' <b>' + RELICS[k].n + '</b> Lv.' + relicLv(k) + '<small>' + relicTxt(k) + '</small>' : '<small>빈 칸</small>'}</div>${k && !S.ui.auto ? `<button data-ru="${i}">해제</button>` : ''}</div>`; }
     h += '<hr><b>유물</b>';
     ks.sort((a,b)=>relicLv(b)-relicLv(a)).forEach(k => { const r = RELICS[k], lv = relicLv(k), c = relicCost(k), eng = S.eng.includes(k);
-      h += `<div class="row c"><div>${lv ? r.e : '❔'} <b style="${lv?'':'opacity:.5'}">${r.n}</b> ${lv ? 'Lv.' + lv + '/' + RELICMAX : ''}<small>${lv ? relicTxt(k) + (eng ? ' ★각인' : '') : r.t + ' · 미해방'}</small>${det ? `<small>레벨당 ${r.pct ? (r.per*100).toFixed(1).replace(/\.0$/,'') + '%' : r.per + '초'}</small>` : ''}</div>
+      h += `<div class="row c"><div>${lv ? r.e : '❔'} <b style="${lv?'':'opacity:.5'}">${r.n}</b> ${lv ? 'Lv.' + lv + '/' + RELICMAX + (lv > RELICBASE ? ' 각성' : '') : ''}<small>${lv ? relicTxt(k) + (eng ? ' ★각인' : '') : r.t + ' · 미해방'}</small>${det ? `<small>레벨당 ${r.pct ? (r.per*100).toFixed(1).replace(/\.0$/,'') + '%' : r.per + '초'}</small>` : ''}</div>
         <span><button data-rl="${k}" ${lv >= RELICMAX || S.rs < c ? 'disabled' : ''}>${lv >= RELICMAX ? 'MAX' : (lv ? '강화' : '해방') + ' 💠' + c}</button>${!S.ui.auto && lv && !eng ? ` <button data-re="${k}">각인</button>` : ''}</span></div>`; });
   } else if (tab === 'reward') {
     chkDaily();
@@ -822,6 +828,9 @@ function renderTab(){
   el.querySelectorAll('[data-sp]').forEach(b => b.onclick = () => { const [k, a] = b.dataset.sp.split(':'), n = a === 'all' ? spLeft() : Math.min(+a, spLeft());
     if (n > 0) { S.sp[k] = (S.sp[k]||0) + n; renderTab(); } });
   el.querySelectorAll('[data-spreset]').forEach(b => b.onclick = () => { if (S.gem >= 10 && spUsed()) { S.gem -= 10; S.sp = {}; say('포인트 초기화'); renderTab(); } });
+  el.querySelectorAll('[data-rx]').forEach(b => b.onclick = () => { chkDaily();
+    const n = b.dataset.rx === 'max' ? Math.min(RXMAX - S.rx.n, Math.floor(S.rs / RXRATE)) : Math.min(1, RXMAX - S.rx.n, Math.floor(S.rs / RXRATE));
+    if (n > 0) { S.rs -= n * RXRATE; S.rx.n += n; S.gem += n; say(`💠${n*RXRATE} → 💎${n}`); renderTab(); } });
   el.querySelectorAll('[data-rl]').forEach(b => b.onclick = () => { const k = b.dataset.rl, c = relicCost(k);
     if (S.rs >= c && relicLv(k) < RELICMAX) { S.rs -= c; (S.relic[k] = S.relic[k] || {lv:0}).lv++; autoAll(); renderTab(); } });
   el.querySelectorAll('[data-rall]').forEach(b => b.onclick = () => { let n = 0;

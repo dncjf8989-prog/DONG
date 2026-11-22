@@ -701,7 +701,7 @@ function renderTab(){
     STATS.forEach(s => {
       const c = upCost(s), maxed = s.max && S.stat[s.k] >= s.max;
       h += `<div class="row"><div><b>${s.name}</b> Lv.${S.stat[s.k]}<small>${s.desc}</small></div>
-        <span><button data-s="${s.k}" ${S.meso<c||maxed?'disabled':''}>💰${fmt(c)}</button> <button data-s10="${s.k}" ${S.meso<c||maxed?'disabled':''}>×10 💰${fmt(bulkCost(s,10))}</button></span></div>`;
+        <span><button data-s="${s.k}" ${S.meso<c||maxed?'disabled':''}>💰${fmt(c)}</button> <button data-s10="${s.k}" ${S.meso<c||maxed?'disabled':''}>×10 💰${fmt(bulkCost(s,10))}</button> <button data-s100="${s.k}" ${S.meso<c||maxed?'disabled':''}>×100 💰${fmt(bulkCost(s,100))}</button></span></div>`;
     });
   } else if (tab === 'gear') {
     const det = S.ui.detail, keys = Object.keys(S.items).sort((a,b)=>GEAR.findIndex(g=>g.k===kslot(a))-GEAR.findIndex(g=>g.k===kslot(b)) || kr(b)-kr(a));
@@ -714,7 +714,7 @@ function renderTab(){
     GEAR.forEach(g => {
       const c = gearCost(g.k);
       h += `<div class="row c"><div>${g.e} ${g.name} <b>+${S.gear[g.k]}</b><small>${det ? g.stat + ' +' + g.per + '/강 · ' : ''}성공 ${Math.round(gearRate(g.k)*100)}%</small></div>
-        <span><button data-g="${g.k}" ${S.meso<c?'disabled':''}>💰${fmt(c)}</button> <button data-g10="${g.k}" ${S.meso<c?'disabled':''}>×10</button></span></div>`;
+        <span><button data-g="${g.k}" ${S.meso<c?'disabled':''}>💰${fmt(c)}</button> <button data-g10="${g.k}" ${S.meso<c?'disabled':''}>×10</button> <button data-g100="${g.k}" ${S.meso<c?'disabled':''}>×100</button></span></div>`;
     });
     h += `<hr><b>보유 장비 ${keys.length}종</b> <small>같은 장비 ${STARUP}개 → 1성 (최대 ${STARMAX}성, 성당 +${STARBONUS*100}%) · ★${STARMAX}는 ${STARUP}개마다 다음 등급으로 합성</small>`;
     keys.forEach(k => { const it = S.items[k], eq = S.equip[kslot(k)] === k, up = it.n >= STARUP && it.star < STARMAX;
@@ -797,6 +797,9 @@ function renderTab(){
     h += gachaHtml();
   }
   el.innerHTML = h;
+  el.querySelectorAll('[data-s100]').forEach(b => b.onclick = () => { const s = STATS.find(x=>x.k===b.dataset.s100); let n = 0;
+    for (let i = 0; i < 100; i++) { const c = upCost(s); if (S.meso < c || (s.max && S.stat[s.k] >= s.max)) break; S.meso -= c; S.stat[s.k]++; n++; }
+    if (n) say(`${s.name} +${n}레벨`); renderTab(); });
   el.querySelectorAll('[data-s10]').forEach(b => b.onclick = () => { const s = STATS.find(x=>x.k===b.dataset.s10);
     for (let i = 0; i < 10; i++) { const c = upCost(s); if (S.meso < c || (s.max && S.stat[s.k] >= s.max)) break; S.meso -= c; S.stat[s.k]++; }
     renderTab(); });
@@ -842,6 +845,9 @@ function renderTab(){
   el.querySelectorAll('[data-tw]').forEach(b => b.onclick = () => { if (b.dataset.tw === 'start') towerStart(); else if (b.dataset.tw === 'sweep') towerSweep(); else if (towerRun) towerEnd('포기'); renderTab(); });
   el.querySelectorAll('[data-gk]').forEach(b => b.onclick = () => { S.ui.gtab = b.dataset.gk; renderTab(); });
   el.querySelectorAll('[data-pull]').forEach(b => b.onclick = () => { const [k, n] = b.dataset.pull.split(':'); GACHA[k].pull(+n); });
+  el.querySelectorAll('[data-g100]').forEach(b => b.onclick = () => { const k = b.dataset.g100; let ok = 0, n = 0; chkDaily();
+    for (let i = 0; i < 100; i++) { const c = gearCost(k); if (S.meso < c) break; S.meso -= c; n++; S.daily.enh++; S.week.enh++; if (Math.random() < gearRate(k)) { S.gear[k]++; ok++; } }
+    if (n) say(`×${n} 강화: 성공 ${ok}회`); renderTab(); });
   el.querySelectorAll('[data-g10]').forEach(b => b.onclick = () => { const k = b.dataset.g10; let ok = 0, n = 0; chkDaily();
     for (let i = 0; i < 10; i++) { const c = gearCost(k); if (S.meso < c) break; S.meso -= c; n++; S.daily.enh++; S.week.enh++; if (Math.random() < gearRate(k)) { S.gear[k]++; ok++; } }
     if (n) say(`×${n} 강화: 성공 ${ok}회`); renderTab(); });

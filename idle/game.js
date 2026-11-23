@@ -332,6 +332,29 @@ const upCost = (s) => costAt(s.base, S.stat[s.k]);
 // n레벨을 한 번에 올릴 때의 총 비용 (최대치 제한 포함)
 const BULK = [10, 100, 1000, 10000, 100000, 1000000];   // 일괄 강화 단위
 const bulkLbl = n => n >= 1e4 ? (n / 1e4) + '만' : n;
+// 예산(budget) 안에서 살 수 있는 최대 레벨 수 (이진 탐색)
+function statMaxN(s, budget){
+  if (budget < upCost(s)) return 0;
+  let lo = 0, hi = 1; while (bulkCost(s, hi) <= budget && hi < 1e13) hi *= 2;
+  while (lo < hi - 1) { const mid = Math.floor((lo + hi) / 2); if (bulkCost(s, mid) <= budget) lo = mid; else hi = mid; }
+  return lo;
+}
+function statAllIn(s, budget){
+  const n = statMaxN(s, budget); if (n < 1) return 0;
+  S.meso = Math.max(0, S.meso - bulkCost(s, n)); S.stat[s.k] += n; return n;
+}
+// 장비 강화: 성공할 때까지의 시도 횟수를 확률분포(기하분포)로 뽑아 레벨마다 한 번에 계산
+function gearAllIn(k, budget){
+  let tries = 0, ups = 0, left = budget;
+  for (let guard = 0; guard < 3e6; guard++) {
+    const c = gearCost(k), p = gearRate(k); if (left < c) break;
+    const maxAtt = Math.floor(left / c), att = p >= 1 ? 1 : Math.max(1, Math.ceil(Math.log(1 - Math.random()) / Math.log(1 - p)));
+    if (att > maxAtt) { tries += maxAtt; left -= maxAtt * c; break; }
+    tries += att; left -= att * c; S.gear[k]++; ups++;
+  }
+  S.meso = Math.max(0, S.meso - (budget - left)); chkDaily(); S.daily.enh += tries; S.week.enh += tries;
+  return {tries, ups};
+}
 function bulkCost(s, n){
   if (n > 2000 && !s.max) { const L = S.stat[s.k], F = x => Math.pow(1 + x/12, 2.5); return Math.floor(s.base * 12 / 2.5 * (F(L + n) - F(L))); } let t = 0, lv = S.stat[s.k]; for (let i = 0; i < n && !(s.max && lv >= s.max); i++, lv++) t += costAt(s.base, lv); return t; }
 const gearCost = k => costAt(100, S.gear[k]);
@@ -771,10 +794,11 @@ function renderTab(){
       h += '<hr>';
     } else h += `<small>✨ Lv.${SPSTART}부터 레벨업마다 능력치 포인트를 받습니다 · 10레벨마다 💎·💠 보상</small><hr>`;
 
+    h += `<div class="row"><div><b>💰 전부 투자</b><small>가진 메소를 모든 능력치에 균등하게 나눠 끝까지 강화</small></div><button data-allin="stat" ${S.meso >= 50 ? '' : 'disabled'}>전부 투자</button></div>`;
     STATS.forEach(s => {
       const c = upCost(s), maxed = s.max && S.stat[s.k] >= s.max;
       h += `<div class="row"><div><b>${s.name}</b> Lv.${fmt(S.stat[s.k])}<small>${s.desc}</small></div>
-        <span><button data-s="${s.k}" ${S.meso<c||maxed?'disabled':''}>💰${fmt(c)}</button>${BULK.map(n => ` <button data-sn="${s.k}:${n}" ${S.meso<c||maxed?'disabled':''}>×${bulkLbl(n)} 💰${fmt(bulkCost(s,n))}</button>`).join('')}</span></div>`;
+        <span><button data-s="${s.k}" ${S.meso<c||maxed?'disabled':''}>💰${fmt(c)}</button>${BULK.map(n => ` <button data-sn="${s.k}:${n}" ${S.meso<c||maxed?'disabled':''}>×${bulkLbl(n)} 💰${fmt(bulkCost(s,n))}</button>`).join('')} <button data-smax="${s.k}" ${S.meso<c||maxed?'disabled':''}>끝까지</button></span></div>`;
     });
   } else if (tab === 'gear') {
     const det = S.ui.detail, keys = Object.keys(S.items).sort((a,b)=>GEAR.findIndex(g=>g.k===kslot(a))-GEAR.findIndex(g=>g.k===kslot(b)) || kr(b)-kr(a));
@@ -787,10 +811,11 @@ function renderTab(){
       if (det) h += '<small>' + si.rows.map(r => `<span style="color:${RARITY[r.R].c}">${RARITY[r.R].n}↑ ${r.n}/8</span> (4부위 +${Math.round(r.b[0]*100)}% · 8부위 +${Math.round(r.b[1]*100)}%)`).join('<br>') + '</small>'; }
     if (det) h += `<small>보유효과 (장착하지 않은 보유 장비 ${HOLD*100}%): ${holdTxt(hold())}</small>`;
     h += `<hr><div class="row"><button data-fold="enh">${S.ui.f_enh ? '▼' : '▶'} 메소 강화 (8부위)</button></div>`;
+    if (S.ui.f_enh) h += `<div class="row"><div><b>💰 전부 투자</b><small>메소를 8부위에 균등하게 나눠 끝까지 강화</small></div><button data-allin="gear" ${S.meso >= 100 ? '' : 'disabled'}>전부 투자</button></div>`;
     if (S.ui.f_enh) GEAR.forEach(g => {
       const c = gearCost(g.k);
       h += `<div class="row c"><div>${g.e} ${g.name} <b>+${fmt(S.gear[g.k])}</b><small>${det ? g.stat + ' +' + g.per + '/강 · ' : ''}성공 ${Math.round(gearRate(g.k)*100)}%</small></div>
-        <span><button data-g="${g.k}" ${S.meso<c?'disabled':''}>💰${fmt(c)}</button>${BULK.map(n => ` <button data-gn="${g.k}:${n}" ${S.meso<c?'disabled':''}>×${bulkLbl(n)}</button>`).join('')}</span></div>`;
+        <span><button data-g="${g.k}" ${S.meso<c?'disabled':''}>💰${fmt(c)}</button>${BULK.map(n => ` <button data-gn="${g.k}:${n}" ${S.meso<c?'disabled':''}>×${bulkLbl(n)}</button>`).join('')} <button data-gmax="${g.k}" ${S.meso<c?'disabled':''}>끝까지</button></span></div>`;
     });
     h += `<hr><div class="row"><button data-fold="own">${S.ui.f_own ? '▼' : '▶'} 보유 장비 ${keys.length}종</button></div>`;
     if (S.ui.f_own) h += `<small>같은 장비 ${STARUP}개 → 1성 (최대 ${STARMAX}성, 성당 +${STARBONUS*100}%) · ★${STARMAX} 후에는 초월(최대 ${TRMAX}단계, 단계마다 +25%), 초월까지 최대면 ${STARUP}개마다 다음 등급으로 합성</small>`;
@@ -933,6 +958,21 @@ function renderTab(){
     if (it && it.star >= STARMAX && (it.tr||0) < TRMAX && it.n >= ITR(it.tr||0)) { it.n -= ITR(it.tr||0); it.tr = (it.tr||0) + 1; say(`${kindName(b.dataset.itr)} 초월 ${it.tr}단계!`); mergeMax(); autoAll(); renderTab(); } });
   el.querySelectorAll('[data-trall]').forEach(b => b.onclick = () => { const n = transcendAll(); say(n ? `전체 성장·초월 ${n}회` : '초월할 수 있는 것이 없습니다'); mergeMax(); autoAll(); renderTab(); });
   el.querySelectorAll('[data-fold]').forEach(b => b.onclick = () => { const k = 'f_' + b.dataset.fold; S.ui[k] = !S.ui[k]; renderTab(); });
+  el.querySelectorAll('[data-smax]').forEach(b => b.onclick = () => { const s = STATS.find(x => x.k === b.dataset.smax), n = statAllIn(s, S.meso);
+    say(n ? `${s.name} +${fmt(n)}레벨 (끝까지)` : '메소가 부족합니다'); renderTab(); });
+  el.querySelectorAll('[data-gmax]').forEach(b => b.onclick = () => { const k = b.dataset.gmax, r = gearAllIn(k, S.meso);
+    say(r.tries ? `×${fmt(r.tries)} 강화: 성공 ${fmt(r.ups)}회 (끝까지)` : '메소가 부족합니다'); renderTab(); });
+  el.querySelectorAll('[data-allin]').forEach(b => b.onclick = () => {
+    if (b.dataset.allin === 'stat') { const list = STATS.filter(s => !(s.max && S.stat[s.k] >= s.max)), share = Math.floor(S.meso / list.length); let tot = 0;
+      list.forEach(s => { tot += statAllIn(s, share); });
+      // 남은 메소는 가장 싼 능력치에 한 번 더
+      list.slice().sort((a, b) => upCost(a) - upCost(b)).forEach(s => { tot += statAllIn(s, S.meso); });
+      say(tot ? `전부 투자: 능력치 총 +${fmt(tot)}레벨` : '메소가 부족합니다'); }
+    else { const share = Math.floor(S.meso / GEAR.length); let t = 0, u = 0;
+      GEAR.forEach(g => { const r = gearAllIn(g.k, share); t += r.tries; u += r.ups; });
+      GEAR.forEach(g => { const r = gearAllIn(g.k, S.meso); t += r.tries; u += r.ups; });
+      say(t ? `전부 투자: ×${fmt(t)} 강화, 성공 ${fmt(u)}회` : '메소가 부족합니다'); }
+    renderTab(); });
   el.querySelectorAll('[data-sn]').forEach(b => b.onclick = () => { const [k, N] = b.dataset.sn.split(':'), s = STATS.find(x => x.k === k); let n = 0;
     for (let i = 0; i < +N; i++) { const c = upCost(s); if (S.meso < c || (s.max && S.stat[s.k] >= s.max)) break; S.meso -= c; S.stat[s.k]++; n++; }
     if (n) say(`${s.name} +${fmt(n)}레벨`); renderTab(); });

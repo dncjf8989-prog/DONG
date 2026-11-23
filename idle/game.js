@@ -1,5 +1,6 @@
 'use strict';
 const $ = id => document.getElementById(id);
+const pf = v => Math.abs(v) >= 1e4 ? fmt(v) : String(+v.toFixed(1));   // 퍼센트 수치(이미 ×100 된 값) 표기: 1만 이상은 단위 표기
 const fmt = n => n < 1e4 ? Math.floor(n).toString() :
   n < 1e8 ? (n/1e4).toFixed(1)+'만' : n < 1e12 ? (n/1e8).toFixed(1)+'억' : n < 1e16 ? (n/1e12).toFixed(1)+'조' :
   n < 1e20 ? (n/1e16).toFixed(1)+'경' : n < 1e24 ? (n/1e20).toFixed(1)+'해' : n < 1e28 ? (n/1e24).toFixed(1)+'자' : n < 1e32 ? (n/1e28).toFixed(1)+'양' : n < 1e36 ? (n/1e32).toFixed(1)+'구' : n < 1e40 ? (n/1e36).toFixed(1)+'간' : n.toExponential(1);
@@ -93,7 +94,7 @@ function mt(){
 }
 const mateTxt = (id, f=1) => { const m = MATES[id], x = [];
   if (m.cd) x.push(`${m.cd}초마다 공격력 ×${(m.m*MATEPOW*mateMul(id)).toFixed(2)} 공격 (크리 적용)`);
-  for (const k in (m.b||{})) x.push(MATEBT[k] + (m.b[k]*mateMul(id)*f*100).toFixed(1).replace(/\.0$/,'') + '%');
+  for (const k in (m.b||{})) x.push(MATEBT[k] + pf(m.b[k]*mateMul(id)*f*100) + '%');
   return x.join(' · '); };
 const PETS = {
   slime:  {n:'슬라임',   e:'🟢', r:0, b:{atk:.05}},
@@ -117,7 +118,7 @@ const PETBT = {atk:'공격력',hp:'HP',meso:'메소',exp:'경험치',crit:'크�
 const PET1 = 2, PET10 = 18, PET100 = 160, PET1000 = 1500, PETMAX = 20, PETSLOT = 2;
 const petLv = id => S.pets[id] ? S.pets[id].lv : 0;
 const petMul = id => (1 + .15*(petLv(id)-1)) * (1 + .5*trOf(S.pets[id]));
-const petTxt = (id, f=1) => Object.entries(PETS[id].b).map(([k,v]) => `${PETBT[k]} +${(v*petMul(id)*f*100).toFixed(f<1?1:0).replace(/\.0$/,'')}%`).join(' · ');
+const petTxt = (id, f=1) => Object.entries(PETS[id].b).map(([k,v]) => `${PETBT[k]} +${pf(v*petMul(id)*f*100)}%`).join(' · ');
 const petOwned = () => Object.keys(S.pets).length;
 function pb(){
   const o = {atk:1,hp:1,meso:1,exp:1,crit:0,spd:1}, n = petOwned();
@@ -154,7 +155,7 @@ function rv(){   // 유물 효과 합계 (각인한 유물은 ×2)
   for (const k in S.relic) if (RELICS[k]) o[k] += RELICS[k].per * relicEffLv(S.relic[k].lv) * (S.eng.includes(k) ? 2 : 1);
   return o;
 }
-const relicTxt = k => { const r = RELICS[k], v = r.per * relicEffLv(relicLv(k)) * (S.eng.includes(k) ? 2 : 1); return r.pct ? `${r.t} +${(v*100).toFixed(1).replace(/\.0$/,'')}%` : `${r.t} +${v.toFixed(1).replace(/\.0$/,'')}초`; };
+const relicTxt = k => { const r = RELICS[k], v = r.per * relicEffLv(relicLv(k)) * (S.eng.includes(k) ? 2 : 1); return r.pct ? `${r.t} +${pf(v*100)}%` : `${r.t} +${v.toFixed(1).replace(/\.0$/,'')}초`; };
 const JOB_LV = [10, 40, 80, 130];
 // m: 배수(atk,hp,def,spd,meso,skill) / 가산(crit,cdmg,regen)
 const TREE = {
@@ -551,7 +552,7 @@ function pull(n){
 const statTxt = k => PCT[kslot(k)] ? `${PCT[kslot(k)]}${fmt(kindPow(k))}%` : `${GEAR.find(g=>g.k===kslot(k)).stat} +${fmt(kindPow(k))}`;
 const HOLD = .35, PETHOLD = .7;
 function hold(){ const o = {weapon:0,hat:0,armor:0,shoes:0,gloves:0,cape:0,ring:0,neck:0}; Object.keys(S.items).forEach(k => { if (S.equip[kslot(k)] !== k) o[kslot(k)] += kindPow(k)*HOLD; }); return o; }
-const holdTxt = H => `공격력 +${H.weapon.toFixed(1)}% · HP +${H.hat.toFixed(1)}% · 방어 +${H.armor.toFixed(1)}% · 공속 +${H.shoes.toFixed(1)}% · 크리율 +${H.gloves.toFixed(1)}% · 피해 -${H.cape.toFixed(1)}% · 크뎀 +${H.ring.toFixed(1)}% · 메소·경험치 +${H.neck.toFixed(1)}%`;
+const holdTxt = H => `공격력 +${pf(H.weapon)}% · HP +${pf(H.hat)}% · 방어 +${pf(H.armor)}% · 공속 +${pf(H.shoes)}% · 크리율 +${pf(H.gloves)}% · 피해 -${pf(H.cape)}% · 크뎀 +${pf(H.ring)}% · 메소·경험치 +${pf(H.neck)}%`;
 const itemHtml = k => `<span style="color:${RARITY[kr(k)].c};font-weight:700">[${RARITY[kr(k)].n}] ${kindName(k)}${itrOf(k) ? ' 초월' + itrOf(k) : ''}${starOf(k) ? ' ' + '★'.repeat(starOf(k)) : ''}</span> <small>${statTxt(k)}</small>`;
 
 // DPS 추정 (내 공격 + 스킬 / 동료 / 펫)
@@ -754,7 +755,7 @@ function renderMaps(){
 function renderTab(){
   const el = $('tab'); let h = '';
   if (tab === 'stats') {
-    const p = P(), D = dpsInfo(), pc = x => (x*100).toFixed(1).replace(/\.0$/,'') + '%';
+    const p = P(), D = dpsInfo(), pc = x => pf(x*100) + '%';
     const rows = [['공격력', fmt(p.atk)], ['HP', fmt(p.hp)], ['방어', fmt(p.def)], ['공격속도', '+' + pc(p.spd-1)],
       ['크리율', pc(p.crit) + (p.critOver > 0 ? ` (초과 +${pc(p.critOver)}→크뎀)` : '')], ['크리 데미지', pc(p.cdmg)], ['메소 획득', '+' + pc(p.meso-1)], ['경험치 획득', '+' + pc(p.exp-1)],
       ['받는 피해', '-' + pc(p.red)], ['HP 회복/초', pc(p.regen)],
@@ -763,7 +764,7 @@ function renderTab(){
     if (S.lv > SPSTART || spUsed()) {
       h += `<div class="row"><div><b>✨ 능력치 포인트 ${fmt(spLeft())}</b><small>Lv.${SPSTART} 이후 레벨업마다 +1 · 초기화 💎10</small></div><button data-spreset="1" ${spUsed() && S.gem >= 10 ? '' : 'disabled'}>초기화</button></div>`;
       Object.keys(SPSTAT).forEach(k => { const d = SPSTAT[k], v = (S.sp[k]||0) * d.per * 100;
-        h += `<div class="row c"><div>${d.n} <b>${fmt(S.sp[k]||0)}</b><small>+${v.toFixed(1).replace(/\.0$/,'')}% (포인트당 +${(d.per*100).toFixed(1).replace(/\.0$/,'')}%)</small></div><span><button data-sp="${k}:1" ${spLeft() >= 1 ? '' : 'disabled'}>+1</button> <button data-sp="${k}:10" ${spLeft() >= 1 ? '' : 'disabled'}>+10</button> <button data-sp="${k}:all" ${spLeft() >= 1 ? '' : 'disabled'}>전부</button></span></div>`; });
+        h += `<div class="row c"><div>${d.n} <b>${fmt(S.sp[k]||0)}</b><small>+${pf(v)}% (포인트당 +${pf(d.per*100)}%)</small></div><span><button data-sp="${k}:1" ${spLeft() >= 1 ? '' : 'disabled'}>+1</button> <button data-sp="${k}:10" ${spLeft() >= 1 ? '' : 'disabled'}>+10</button> <button data-sp="${k}:all" ${spLeft() >= 1 ? '' : 'disabled'}>전부</button></span></div>`; });
       h += '<hr>';
     } else h += `<small>✨ Lv.${SPSTART}부터 레벨업마다 능력치 포인트를 받습니다 · 10레벨마다 💎·💠 보상</small><hr>`;
 
@@ -810,7 +811,7 @@ function renderTab(){
     else {
       h += `<div class="row"><div><b>🌳 ${TREE[root].n} 스킬 트리</b><small>스킬 포인트 ${fmt(skLeft())} · 레벨 ${SKSTART}부터 레벨당 +1 · 초기화 💎10</small></div><button data-skreset="1" ${skUsed() && S.gem >= 10 ? '' : 'disabled'}>초기화</button></div>`;
       skList().forEach((sk, i) => { const lv = skLv(i), locked = tier < sk.tier;
-        const eff = sk.act ? `${sk.act.cd}초마다 공격력 ×${(sk.act.mul*sk.act.hits*(1+.1*(lv-1))*SKPOW).toFixed(1)} × 스킬 배율` : Object.keys(sk.eff).map(k => `${SKLBL[k]} +${(sk.eff[k]*lv*100).toFixed(1).replace(/\.0$/,'')}%`).join(' · ');
+        const eff = sk.act ? `${sk.act.cd}초마다 공격력 ×${(sk.act.mul*sk.act.hits*(1+.1*(lv-1))*SKPOW).toFixed(1)} × 스킬 배율` : Object.keys(sk.eff).map(k => `${SKLBL[k]} +${pf(sk.eff[k]*lv*100)}%`).join(' · ');
         h += `<div class="row c" style="${locked?'opacity:.5':''}"><div>${sk.e} <b>${sk.n}</b> ${lv}/${sk.max}<small>${locked ? sk.tier + '차 전직 필요 · ' + sk.d : (lv ? eff : sk.d)}</small></div>
           <span><button data-sk="${i}:1" ${!locked && lv < sk.max && skLeft() >= 1 ? '' : 'disabled'}>+1</button> <button data-sk="${i}:max" ${!locked && lv < sk.max && skLeft() >= 1 ? '' : 'disabled'}>MAX</button></span></div>`; });
     }
@@ -978,7 +979,7 @@ function render(){
     } }
   $('mapname').innerHTML = towerRun ? `<b>🗼 무한의 탑 ${towerRun.floor}층</b> · 클리어 ${towerRun.cleared}층` : `<b>${MAPS[S.map].name}</b> · 스테이지 ${S.stage}/${STAGES}`;
   $('mname').textContent = towerRun ? `${towerRun.floor}층 수문장 (${Math.ceil(bossT)}s)` : isBoss ? `BOSS (${Math.ceil(bossT)}s)` : MAPS[S.map].mon;
-  $('stageinfo').textContent = `공격 ${fmt(p.atk)} · HP ${fmt(p.hp)} · 방어 ${fmt(p.def)} · 크리 ${(p.crit*100).toFixed(1)}%/${Math.round(p.cdmg*100)}% · 처치 ${S.kills%10}/10` + (jobNodes()[0] ? ` · ${jobNodes()[0].sk[0]} ${Math.max(0,Math.ceil(skCd))}s` : '');
+  $('stageinfo').textContent = `공격 ${fmt(p.atk)} · HP ${fmt(p.hp)} · 방어 ${fmt(p.def)} · 크리 ${pf(p.crit*100)}%/${pf(p.cdmg*100)}% · 처치 ${S.kills%10}/10` + (jobNodes()[0] ? ` · ${jobNodes()[0].sk[0]} ${Math.max(0,Math.ceil(skCd))}s` : '');
 }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   tab = b.dataset.tab; document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on', x===b)); renderTab(); });

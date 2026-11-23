@@ -59,7 +59,7 @@ const analyzeDays=(process.argv[5]||'').split(',').filter(Boolean).map(Number); 
       Object.values(S.items).forEach(it=>{ while(it.n>=STARUP&&it.star<STARMAX){ it.n-=STARUP; it.star++; } });
       Object.values(S.pets).forEach(o=>{ while(o.sh>=o.lv&&o.lv<PETMAX){ o.sh-=o.lv; o.lv++; } });
       Object.values(S.mates).forEach(o=>{ while(o.sh>=o.lv&&o.lv<MATEMAX){ o.sh-=o.lv; o.lv++; } });
-      mergeMax(); autoAll();
+      transcendAll(); mergeMax(); autoAll();
       const g=minePending(); if(g>=1){ S.gem+=g; S.mine.t=Date.now(); track('mine',g); }
     }
     function stageLogic(){

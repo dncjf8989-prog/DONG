@@ -68,7 +68,9 @@ const MATEBT = {red:'받는 피해 -',regen:'HP 회복/초 +',atk:'공격력 +',
 const PITY_L = 200, PITY_PM = 160, PITY_E = 20;
 const MATEMAX = 20, PARTY = 3, MATE1 = 2, MATE10 = 18, MATE100 = 160, MATE1000 = 1500;
 const mateLv = id => S.mates[id] ? S.mates[id].lv : 0;
-const mateMul = id => 1 + .2*(mateLv(id)-1);
+const TRMAX = 5, trCost = tr => 25 * (tr + 1);   // 초월: 만렙(Lv.20) 이후 조각으로 최대 5단계, 단계마다 효과 +50%
+const trOf = o => (o && o.tr) || 0;
+const mateMul = id => (1 + .2*(mateLv(id)-1)) * (1 + .5*trOf(S.mates[id]));
 const mateOwned = () => Object.keys(S.mates).length;
 function mt(){
   const o = {atk:1,exp:1,meso:1,regen:0,red:0}, n = mateOwned();
@@ -103,7 +105,7 @@ const PETS = {
 const PETBT = {atk:'공격력',hp:'HP',meso:'메소',exp:'경험치',crit:'크리율',spd:'공속'};
 const PET1 = 2, PET10 = 18, PET100 = 160, PET1000 = 1500, PETMAX = 20, PETSLOT = 2;
 const petLv = id => S.pets[id] ? S.pets[id].lv : 0;
-const petMul = id => 1 + .15*(petLv(id)-1);
+const petMul = id => (1 + .15*(petLv(id)-1)) * (1 + .5*trOf(S.pets[id]));
 const petTxt = (id, f=1) => Object.entries(PETS[id].b).map(([k,v]) => `${PETBT[k]} +${(v*petMul(id)*f*100).toFixed(f<1?1:0).replace(/\.0$/,'')}%`).join(' · ');
 const petOwned = () => Object.keys(S.pets).length;
 function pb(){
@@ -279,10 +281,10 @@ const statEff = L => Math.pow(L, .8) * 1.6;   // 능력치 레벨의 실제 효�
 const P = () => {
   const J = jm(), B = pb(), M = mt(), R = rv(), K = skv(), H = hold(), E = S.equip, ep = k => (E[k] ? kindPow(E[k]) : 0) + H[k], pg = k => (ep(k) + S.gear[k]*GEAR.find(g=>g.k===k).per) / 100;
   const critRaw = .05 + S.stat.crit*.005 + J.crit + B.crit + pg('gloves') + R.crit + SP('crit') + K.crit;
-  const atk = (10 + S.lv*3 + statEff(S.stat.atk)*5) * (1 + pg('weapon')) * J.atk * B.atk * M.atk * (1 + R.atk) * (1 + SP('atk')) * (1 + K.atk);
+  const SB = setInfo().bonus, atk = (10 + S.lv*3 + statEff(S.stat.atk)*5) * (1 + SB) * (1 + pg('weapon')) * J.atk * B.atk * M.atk * (1 + R.atk) * (1 + SP('atk')) * (1 + K.atk);
   return {
     atk,
-    hp: (100 + S.lv*20 + statEff(S.stat.hp)*40) * (1 + pg('hat')) * J.hp * B.hp * (1 + R.hp) * (1 + SP('hp')) * (1 + K.hp),
+    hp: (100 + S.lv*20 + statEff(S.stat.hp)*40) * (1 + SB) * (1 + pg('hat')) * J.hp * B.hp * (1 + R.hp) * (1 + SP('hp')) * (1 + K.hp),
     def: (S.lv*3 + 10) * (1 + pg('armor')) * J.def * (1 + R.def) * (1 + K.def),
     crit: Math.min(1, critRaw), critOver: Math.max(0, critRaw - 1),   // 100% 초과분은 크리 데미지로 전환
     cdmg: 1.5 + S.stat.cdmg*.02 + J.cdmg + pg('ring') + R.cdmg + SP('cdmg') + K.cdmg + Math.max(0, critRaw - 1),
@@ -447,6 +449,16 @@ function offline(){
 function say(t){ $('msg').textContent = t; clearTimeout(say.t); say.t = setTimeout(()=>$('msg').textContent='', 4000); }
 function save(){ S.last = Date.now(); try{ localStorage.setItem('mapleIdle', JSON.stringify(S)); }catch(e){} }
 
+// 장비 세트 효과: 같은 등급 이상을 4부위 / 8부위 착용하면 공격력·HP 보너스 (가장 높은 달성 단계 1개만 적용)
+const SETBONUS = {1:[.10,.20], 2:[.25,.50], 3:[.60,1.20], 4:[1.50,3.00]};   // 등급: [4부위, 8부위]
+function setInfo(){
+  const rs = GEAR.map(g => S.equip[g.k] ? kr(S.equip[g.k]) : -1);
+  let best = 0, desc = null; const rows = [];
+  for (let R = 1; R <= 4; R++) { const n = rs.filter(r => r >= R).length, b = SETBONUS[R];
+    const got = n >= 8 ? b[1] : n >= 4 ? b[0] : 0; rows.push({R, n, b, got});
+    if (got > best) { best = got; desc = RARITY[R].n + ' ' + (n >= 8 ? 8 : 4) + '세트'; } }
+  return {bonus:best, desc, rows};
+}
 // 장비 종류 = 부위:등급. 중복은 개수로 쌓이고, 5개마다 1성 승급
 const STARMAX = 5, STARUP = 5, STARBONUS = .5;
 const kslot = k => k.split(':')[0], kr = k => +k.split(':')[1];
@@ -658,8 +670,8 @@ function colHtml(t){
   ids.forEach(id => { const d = c.defs[id], o = c.own[id];
     if (!o) { missing++; if (S.ui.missing) h += `<div class="row c"><div style="opacity:.45">❔ ${d.n}<small>${RARITY[d.r].n} · 미획득</small></div></div>`; return; }
     const can = o.sh >= o.lv && o.lv < c.max, eq = c.slots.includes(id);
-    h += `<div class="row c"><div>${d.e} <b style="color:${RARITY[d.r].c}">${d.n}</b> Lv.${o.lv} <small>${o.lv < c.max ? o.sh + '/' + o.lv : 'MAX'}${eq ? ' · ★' : ''}</small>${det ? '<small>' + c.sub(id) + ' · ' + (eq ? c.txt(id) : '보유효과 ' + c.txt(id, PETHOLD)) + '</small>' : ''}</div>
-      <span><button data-${c.k.lv}="${id}" ${can?'':'disabled'}>강화</button> ${S.ui.auto ? '' : `<button data-${c.k.eq}="${id}" ${eq?'disabled':''}>${t==='mate'?'편성':'장착'}</button>`}</span></div>`; });
+    h += `<div class="row c"><div>${d.e} <b style="color:${RARITY[d.r].c}">${d.n}</b> Lv.${o.lv}${trOf(o) ? ' <b style="color:#ffb020">초월' + trOf(o) + '</b>' : ''} <small>${o.lv < c.max ? o.sh + '/' + o.lv : 'MAX' + (trOf(o) < TRMAX ? ' · 초월 ' + o.sh + '/' + trCost(trOf(o)) : '')}${eq ? ' · ★' : ''}</small>${det ? '<small>' + c.sub(id) + ' · ' + (eq ? c.txt(id) : '보유효과 ' + c.txt(id, PETHOLD)) + '</small>' : ''}</div>
+      <span>${o.lv >= c.max && trOf(o) < TRMAX ? `<button data-tr="${t}:${id}" ${o.sh >= trCost(trOf(o)) ? '' : 'disabled'}>초월</button> ` : `<button data-${c.k.lv}="${id}" ${can?'':'disabled'}>강화</button> `}${S.ui.auto ? '' : `<button data-${c.k.eq}="${id}" ${eq?'disabled':''}>${t==='mate'?'편성':'장착'}</button>`}</span></div>`; });
   if (missing && !S.ui.missing) h += `<small>미획득 ${missing}${c.unit} 숨김</small>`;
   return h;
 }
@@ -710,6 +722,9 @@ function renderTab(){
     h += `<div class="row"><span><button data-ui="auto">자동 장착 ${S.ui.auto?'ON':'OFF'}</button> <button data-ui="detail">${det?'간단히':'자세히'}</button> <button data-starall="1" ${canStar?'':'disabled'}>전체 승급</button></span><div>💰 ${fmt(S.meso)}</div></div>`;
     h += '<b>착용 중</b><div class="eg">' + GEAR.map(g => { const e = S.equip[g.k];
       return e ? `<div class="ec">${g.e} <span style="color:${RARITY[kr(e)].c};font-weight:700">${kindName(e)}${starOf(e) ? '★' + starOf(e) : ''}</span><small>${statTxt(e)}</small></div>` : `<div class="ec"><small>${g.e} 미장착</small></div>`; }).join('') + '</div>';
+    { const si = setInfo();
+      h += `<div class="row c"><div><b>🧩 세트 효과</b> <small>${si.bonus ? si.desc + ' · 공격력·HP +' + Math.round(si.bonus*100) + '%' : '같은 등급 이상 4부위 착용 시 발동'}</small></div></div>`;
+      h += '<small>' + si.rows.map(r => `<span style="color:${RARITY[r.R].c}">${RARITY[r.R].n}↑ ${r.n}/8</span> (4부위 +${Math.round(r.b[0]*100)}% · 8부위 +${Math.round(r.b[1]*100)}%)`).join('<br>') + '</small>'; }
     if (det) h += `<small>보유효과 (장착하지 않은 보유 장비 ${HOLD*100}%): ${holdTxt(hold())}</small>`;
     h += '<hr><b>메소 강화</b>';
     GEAR.forEach(g => {
@@ -855,6 +870,8 @@ function renderTab(){
   el.querySelectorAll('[data-starall]').forEach(b => b.onclick = () => { let n = 0;
     Object.values(S.items).forEach(it => { while (it.n >= STARUP && it.star < STARMAX) { it.n -= STARUP; it.star++; n++; } });
     if (n) say(`전체 승급 ${n}회`); mergeMax(); autoAll(); renderTab(); });
+  el.querySelectorAll('[data-tr]').forEach(b => b.onclick = () => { const [t, id] = b.dataset.tr.split(':'), c = colCfg(t), o = c.own[id];
+    if (o && o.lv >= c.max && trOf(o) < TRMAX && o.sh >= trCost(trOf(o))) { o.sh -= trCost(trOf(o)); o.tr = trOf(o) + 1; say(`${c.defs[id].n} 초월 ${o.tr}단계!`); autoAll(); renderTab(); } });
   el.querySelectorAll('[data-all]').forEach(b => b.onclick = () => { const c = colCfg(b.dataset.all); let n = 0;
     Object.values(c.own).forEach(o => { while (o.sh >= o.lv && o.lv < c.max) { o.sh -= o.lv; o.lv++; n++; } });
     if (n) say(`전체 강화 ${n}회`); autoAll(); renderTab(); });

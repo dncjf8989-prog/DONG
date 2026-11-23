@@ -74,7 +74,7 @@ const MATES = {
   nero: {n:'네로',   e:'🌑', r:4, role:'암흑기사', cd:2.5,m:18,  b:{atk:.35,red:.12}},
 };
 // 동료 공격은 등급별 "초당 공격력 배수"로 통일 (등급 간 격차를 9배 이내로: 일반도 의미 있게)
-const MPS = [0.7, 1.2, 2.0, 3.2, 5.0];
+const MPS = [1.2, 1.8, 2.6, 3.6, 5.0];
 Object.values(MATES).forEach(x => { if (x.cd) x.m = MPS[x.r] * x.cd; });
 const MATEBT = {red:'받는 피해 -',regen:'HP 회복/초 +',atk:'공격력 +',exp:'경험치 +',meso:'메소 +'};
 const PITY_L = 200, PITY_PM = 160, PITY_E = 20;
@@ -287,7 +287,7 @@ const SKILLS = {
     {n:'날렵함',           e:'💨', tier:2, max:20, eff:{spd:.01}, d:'공격속도'}],
 };
 const SKPOW = .05;   // 추가 액티브 스킬 전체 배율
-const actDmg = (sk, lv, p) => p.atk * sk.act.mul * sk.act.hits * (1 + .1*(lv-1)) * p.skill * SKPOW;
+const actDmg = (sk, lv, p) => p.atk * sk.act.mul * sk.act.hits * (1 + .1*(lv-1)) * p.skill * SKPOW * critAvg(p);
 const skCdMap = {};
 const SKLBL = {atk:'공격력',hp:'HP',def:'방어',spd:'공속',skill:'스킬',meso:'메소',crit:'크리율',cdmg:'크뎀',red:'받는 피해 -',regen:'회복/초'};
 const skRoot = () => S.job[0] || null;
@@ -306,7 +306,7 @@ function skv(){
 const LVCAP = 1e9, REC_END = 1300, EXPK = 400;   // 레벨 상한 없음 / 권장 레벨 곡선의 끝(마지막 맵 구간) / 맵 해금 레벨에서 1레벨당 필요한 처치 수(1스테이지 기준)
 const need = lv => Math.floor(30 * Math.pow(lv, 3.0));   // 필요 경험치: 레벨의 거듭제곱 (지수 증가 없음)
 // ---- 난이도 곡선: 맵·스테이지를 하나의 티어 T(0~79)로 보고 몬스터 능력치/보상을 계산 ----
-const TIERHP = {h0:20, g:1.43}, TIERDMG = {d0:3, g:1.21};   // 몬스터 HP / 공격력 성장률 (티어당). 플레이어 전투력이 여러 효과의 곱으로 커지므로 난이도는 곱셈 성장
+const TIERHP = {h0:20, g:1.47}, TIERDMG = {d0:3, g:1.22};   // 몬스터 HP / 공격력 성장률 (티어당). 플레이어 전투력이 여러 효과의 곱으로 커지므로 난이도는 곱셈 성장
 const lvRec = T => { const m = Math.min(MAPS.length-1, Math.floor(T/10)), s = T % 10, a = MAPS[m].lv, b = m+1 < MAPS.length ? MAPS[m+1].lv : REC_END; return a + (b-a)*s/10; };
 const tierOf = () => S.map * 10 + S.stage - 1;
 const tierExp = T => Math.max(1, need(Math.round(lvRec(T)) + 2) / EXPK);
@@ -348,7 +348,7 @@ function repeatBossGem(){
   S.bg.n += g; return g;
 }
 const critAvg = p => 1 + p.crit * (p.cdmg - 1);
-const MATEPOW = .25, PETPOW = .35;   // 동료/펫 공격 전체 배율 (크리 반영 후 내 DPS와의 비중 조정용)   // 동료·펫 공격도 내 크리티컬 효과를 받는다
+const MATEPOW = .45, PETPOW = .55;   // 동료/펫 공격 전체 배율 (크리 반영 후 내 DPS와의 비중 조정용)   // 동료·펫 공격도 내 크리티컬 효과를 받는다
 const mCd = {};
 let petCd = 2, mhp, mmax, php, isBoss = false, bossT = 0, atkCd = 0, monCd = 0, skCd = 3;
 // ---- 무한의 탑: 하루 입장권으로 보스를 층층이 오르는 도전 콘텐츠 ----
@@ -457,7 +457,7 @@ function tick(){
     skCd -= DT;
     if (skCd <= 0) {
       const [nm, cd, mul, hits] = root.sk; skCd = cd;
-      const d = p.atk * mul * hits * p.skill;
+      const d = p.atk * mul * hits * p.skill * critAvg(p);   // 스킬도 크리티컬(기대값) 적용
       mhp -= d; float(nm + ' ' + fmt(d), true, 'm');
       if (mhp <= 0) kill();
     }
@@ -561,7 +561,7 @@ const itemHtml = k => `<span style="color:${RARITY[kr(k)].c};font-weight:700">[$
 // DPS 추정 (내 공격 + 스킬 / 동료 / 펫)
 function dpsInfo(){
   const p = P(), root = jobNodes()[0];
-  const me = p.atk * (1 + p.crit*(p.cdmg-1)) * p.spd + (root ? p.atk*root.sk[2]*root.sk[3]*p.skill/root.sk[1] : 0) + skList().reduce((a, sk, i) => a + (sk.act && skLv(i) && skTier() >= sk.tier ? actDmg(sk, skLv(i), p) / sk.act.cd : 0), 0);
+  const me = p.atk * (1 + p.crit*(p.cdmg-1)) * p.spd + (root ? p.atk*root.sk[2]*root.sk[3]*p.skill*critAvg(p)/root.sk[1] : 0) + skList().reduce((a, sk, i) => a + (sk.act && skLv(i) && skTier() >= sk.tier ? actDmg(sk, skLv(i), p) / sk.act.cd : 0), 0);
   let mate = 0, pet = 0;
   S.party.forEach(id => { if (id && S.mates[id] && MATES[id].cd) mate += p.atk*MATES[id].m*mateMul(id)*p.rmate*critAvg(p)*MATEPOW/MATES[id].cd; });
   S.petEq.forEach(id => { if (id && S.pets[id]) pet += p.atk*(.5+.4*PETS[id].r)*petMul(id)*p.rpet*critAvg(p)*PETPOW/2; });

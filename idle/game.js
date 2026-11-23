@@ -324,7 +324,8 @@ const P = () => {
 const costAt = (base, lv) => Math.floor(base * Math.pow(1 + lv/12, 1.5));   // 비용 = 기본 × (1 + 레벨/12)^1.5 (완만한 증가)
 const upCost = (s) => costAt(s.base, S.stat[s.k]);
 // n레벨을 한 번에 올릴 때의 총 비용 (최대치 제한 포함)
-function bulkCost(s, n){ let t = 0, lv = S.stat[s.k]; for (let i = 0; i < n && !(s.max && lv >= s.max); i++, lv++) t += costAt(s.base, lv); return t; }
+function bulkCost(s, n){
+  if (n > 2000 && !s.max) { const L = S.stat[s.k], F = x => Math.pow(1 + x/12, 2.5); return Math.floor(s.base * 12 / 2.5 * (F(L + n) - F(L))); } let t = 0, lv = S.stat[s.k]; for (let i = 0; i < n && !(s.max && lv >= s.max); i++, lv++) t += costAt(s.base, lv); return t; }
 const gearCost = k => costAt(100, S.gear[k]);
 const gearRate = k => Math.max(.15, 1 - S.gear[k]*.02);
 
@@ -762,7 +763,7 @@ function renderTab(){
     STATS.forEach(s => {
       const c = upCost(s), maxed = s.max && S.stat[s.k] >= s.max;
       h += `<div class="row"><div><b>${s.name}</b> Lv.${S.stat[s.k]}<small>${s.desc}</small></div>
-        <span><button data-s="${s.k}" ${S.meso<c||maxed?'disabled':''}>💰${fmt(c)}</button> <button data-s10="${s.k}" ${S.meso<c||maxed?'disabled':''}>×10 💰${fmt(bulkCost(s,10))}</button> <button data-s100="${s.k}" ${S.meso<c||maxed?'disabled':''}>×100 💰${fmt(bulkCost(s,100))}</button> <button data-s1000="${s.k}" ${S.meso<c||maxed?'disabled':''}>×1000 💰${fmt(bulkCost(s,1000))}</button> <button data-s10000="${s.k}" ${S.meso<c||maxed?'disabled':''}>×10000 💰${fmt(bulkCost(s,10000))}</button></span></div>`;
+        <span><button data-s="${s.k}" ${S.meso<c||maxed?'disabled':''}>💰${fmt(c)}</button> <button data-s10="${s.k}" ${S.meso<c||maxed?'disabled':''}>×10 💰${fmt(bulkCost(s,10))}</button> <button data-s100="${s.k}" ${S.meso<c||maxed?'disabled':''}>×100 💰${fmt(bulkCost(s,100))}</button> <button data-s1000="${s.k}" ${S.meso<c||maxed?'disabled':''}>×1000 💰${fmt(bulkCost(s,1000))}</button> <button data-s10000="${s.k}" ${S.meso<c||maxed?'disabled':''}>×10000 💰${fmt(bulkCost(s,10000))}</button> <button data-s100000="${s.k}" ${S.meso<c||maxed?'disabled':''}>×100000 💰${fmt(bulkCost(s,100000))}</button></span></div>`;
     });
   } else if (tab === 'gear') {
     const det = S.ui.detail, keys = Object.keys(S.items).sort((a,b)=>GEAR.findIndex(g=>g.k===kslot(a))-GEAR.findIndex(g=>g.k===kslot(b)) || kr(b)-kr(a));
@@ -778,7 +779,7 @@ function renderTab(){
     GEAR.forEach(g => {
       const c = gearCost(g.k);
       h += `<div class="row c"><div>${g.e} ${g.name} <b>+${S.gear[g.k]}</b><small>${det ? g.stat + ' +' + g.per + '/강 · ' : ''}성공 ${Math.round(gearRate(g.k)*100)}%</small></div>
-        <span><button data-g="${g.k}" ${S.meso<c?'disabled':''}>💰${fmt(c)}</button> <button data-g10="${g.k}" ${S.meso<c?'disabled':''}>×10</button> <button data-g100="${g.k}" ${S.meso<c?'disabled':''}>×100</button> <button data-g1000="${g.k}" ${S.meso<c?'disabled':''}>×1000</button> <button data-g10000="${g.k}" ${S.meso<c?'disabled':''}>×10000</button></span></div>`;
+        <span><button data-g="${g.k}" ${S.meso<c?'disabled':''}>💰${fmt(c)}</button> <button data-g10="${g.k}" ${S.meso<c?'disabled':''}>×10</button> <button data-g100="${g.k}" ${S.meso<c?'disabled':''}>×100</button> <button data-g1000="${g.k}" ${S.meso<c?'disabled':''}>×1000</button> <button data-g10000="${g.k}" ${S.meso<c?'disabled':''}>×10000</button> <button data-g100000="${g.k}" ${S.meso<c?'disabled':''}>×100000</button></span></div>`;
     });
     h += `<hr><b>보유 장비 ${keys.length}종</b> <small>같은 장비 ${STARUP}개 → 1성 (최대 ${STARMAX}성, 성당 +${STARBONUS*100}%) · ★${STARMAX} 후에는 초월(최대 ${TRMAX}단계, 단계마다 +25%), 초월까지 최대면 ${STARUP}개마다 다음 등급으로 합성</small>`;
     keys.forEach(k => { const it = S.items[k], eq = S.equip[kslot(k)] === k, up = it.n >= STARUP && it.star < STARMAX;
@@ -861,6 +862,12 @@ function renderTab(){
     h += gachaHtml();
   }
   el.innerHTML = h;
+  el.querySelectorAll('[data-s100000]').forEach(b => b.onclick = () => { const s = STATS.find(x=>x.k===b.dataset.s100000); let n = 0;
+    for (let i = 0; i < 100000; i++) { const c = upCost(s); if (S.meso < c || (s.max && S.stat[s.k] >= s.max)) break; S.meso -= c; S.stat[s.k]++; n++; }
+    if (n) say(`${s.name} +${n}레벨`); renderTab(); });
+  el.querySelectorAll('[data-g100000]').forEach(b => b.onclick = () => { const k = b.dataset.g100000; let ok = 0, n = 0; chkDaily();
+    for (let i = 0; i < 100000; i++) { const c = gearCost(k); if (S.meso < c) break; S.meso -= c; n++; S.daily.enh++; S.week.enh++; if (Math.random() < gearRate(k)) { S.gear[k]++; ok++; } }
+    if (n) say(`×${n} 강화: 성공 ${ok}회`); renderTab(); });
   el.querySelectorAll('[data-s10000]').forEach(b => b.onclick = () => { const s = STATS.find(x=>x.k===b.dataset.s10000); let n = 0;
     for (let i = 0; i < 10000; i++) { const c = upCost(s); if (S.meso < c || (s.max && S.stat[s.k] >= s.max)) break; S.meso -= c; S.stat[s.k]++; n++; }
     if (n) say(`${s.name} +${n}레벨`); renderTab(); });

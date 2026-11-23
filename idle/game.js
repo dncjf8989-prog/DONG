@@ -784,16 +784,17 @@ function renderTab(){
       return e ? `<div class="ec">${g.e} <span style="color:${RARITY[kr(e)].c};font-weight:700">${kindName(e)}${starOf(e) ? '★' + starOf(e) : ''}</span><small>${statTxt(e)}</small></div>` : `<div class="ec"><small>${g.e} 미장착</small></div>`; }).join('') + '</div>';
     { const si = setInfo();
       h += `<div class="row c"><div><b>🧩 세트 효과</b> <small>${si.bonus ? si.desc + ' · 공격력·HP +' + Math.round(si.bonus*100) + '%' : '같은 등급 이상 4부위 착용 시 발동'}</small></div></div>`;
-      h += '<small>' + si.rows.map(r => `<span style="color:${RARITY[r.R].c}">${RARITY[r.R].n}↑ ${r.n}/8</span> (4부위 +${Math.round(r.b[0]*100)}% · 8부위 +${Math.round(r.b[1]*100)}%)`).join('<br>') + '</small>'; }
+      if (det) h += '<small>' + si.rows.map(r => `<span style="color:${RARITY[r.R].c}">${RARITY[r.R].n}↑ ${r.n}/8</span> (4부위 +${Math.round(r.b[0]*100)}% · 8부위 +${Math.round(r.b[1]*100)}%)`).join('<br>') + '</small>'; }
     if (det) h += `<small>보유효과 (장착하지 않은 보유 장비 ${HOLD*100}%): ${holdTxt(hold())}</small>`;
-    h += '<hr><b>메소 강화</b>';
-    GEAR.forEach(g => {
+    h += `<hr><div class="row"><button data-fold="enh">${S.ui.f_enh ? '▼' : '▶'} 메소 강화 (8부위)</button></div>`;
+    if (S.ui.f_enh) GEAR.forEach(g => {
       const c = gearCost(g.k);
       h += `<div class="row c"><div>${g.e} ${g.name} <b>+${fmt(S.gear[g.k])}</b><small>${det ? g.stat + ' +' + g.per + '/강 · ' : ''}성공 ${Math.round(gearRate(g.k)*100)}%</small></div>
         <span><button data-g="${g.k}" ${S.meso<c?'disabled':''}>💰${fmt(c)}</button>${BULK.map(n => ` <button data-gn="${g.k}:${n}" ${S.meso<c?'disabled':''}>×${bulkLbl(n)}</button>`).join('')}</span></div>`;
     });
-    h += `<hr><b>보유 장비 ${keys.length}종</b> <small>같은 장비 ${STARUP}개 → 1성 (최대 ${STARMAX}성, 성당 +${STARBONUS*100}%) · ★${STARMAX} 후에는 초월(최대 ${TRMAX}단계, 단계마다 +25%), 초월까지 최대면 ${STARUP}개마다 다음 등급으로 합성</small>`;
-    keys.forEach(k => { const it = S.items[k], eq = S.equip[kslot(k)] === k, up = it.n >= STARUP && it.star < STARMAX;
+    h += `<hr><div class="row"><button data-fold="own">${S.ui.f_own ? '▼' : '▶'} 보유 장비 ${keys.length}종</button></div>`;
+    if (S.ui.f_own) h += `<small>같은 장비 ${STARUP}개 → 1성 (최대 ${STARMAX}성, 성당 +${STARBONUS*100}%) · ★${STARMAX} 후에는 초월(최대 ${TRMAX}단계, 단계마다 +25%), 초월까지 최대면 ${STARUP}개마다 다음 등급으로 합성</small>`;
+    if (S.ui.f_own) keys.forEach(k => { const it = S.items[k], eq = S.equip[kslot(k)] === k, up = it.n >= STARUP && it.star < STARMAX;
       h += `<div class="row c"><div>${GEAR.find(g=>g.k===kslot(k)).e} <span style="color:${RARITY[kr(k)].c};font-weight:700">${kindName(k)}${starOf(k) ? '★' + starOf(k) : ''}${itrOf(k) ? '초월' + itrOf(k) : ''}</span> <small>${statTxt(k).replace(/^[^+-]*/, '')} · ${it.star < STARMAX ? fmt(it.n) + '/' + STARUP : (it.tr||0) < TRMAX ? '초월 ' + fmt(it.n) + '/' + ITR(it.tr||0) : 'MAX ' + fmt(it.n) + '/' + STARUP + (kr(k) < 4 ? ' → ' + ITEM[kslot(k)].names[kr(k)+1] : ' → 💎' + MERGEGEM)}${eq ? ' · 착용' : ''}</small></div>
         <span>${it.star >= STARMAX && (it.tr||0) < TRMAX ? `<button data-itr="${k}" ${it.n >= ITR(it.tr||0) ? '' : 'disabled'}>초월</button>` : `<button data-star="${k}" ${up?'':'disabled'}>승급</button>`}${S.ui.auto ? '' : ` <button data-eq="${k}" ${eq?'disabled':''}>장착</button>`}</span></div>`; });
   } else if (tab === 'tower') {
@@ -931,6 +932,7 @@ function renderTab(){
   el.querySelectorAll('[data-itr]').forEach(b => b.onclick = () => { const it = S.items[b.dataset.itr];
     if (it && it.star >= STARMAX && (it.tr||0) < TRMAX && it.n >= ITR(it.tr||0)) { it.n -= ITR(it.tr||0); it.tr = (it.tr||0) + 1; say(`${kindName(b.dataset.itr)} 초월 ${it.tr}단계!`); mergeMax(); autoAll(); renderTab(); } });
   el.querySelectorAll('[data-trall]').forEach(b => b.onclick = () => { const n = transcendAll(); say(n ? `전체 성장·초월 ${n}회` : '초월할 수 있는 것이 없습니다'); mergeMax(); autoAll(); renderTab(); });
+  el.querySelectorAll('[data-fold]').forEach(b => b.onclick = () => { const k = 'f_' + b.dataset.fold; S.ui[k] = !S.ui[k]; renderTab(); });
   el.querySelectorAll('[data-sn]').forEach(b => b.onclick = () => { const [k, N] = b.dataset.sn.split(':'), s = STATS.find(x => x.k === k); let n = 0;
     for (let i = 0; i < +N; i++) { const c = upCost(s); if (S.meso < c || (s.max && S.stat[s.k] >= s.max)) break; S.meso -= c; S.stat[s.k]++; n++; }
     if (n) say(`${s.name} +${fmt(n)}레벨`); renderTab(); });

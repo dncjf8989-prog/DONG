@@ -324,6 +324,8 @@ const P = () => {
 const costAt = (base, lv) => Math.floor(base * Math.pow(1 + lv/12, 1.5));   // 비용 = 기본 × (1 + 레벨/12)^1.5 (완만한 증가)
 const upCost = (s) => costAt(s.base, S.stat[s.k]);
 // n레벨을 한 번에 올릴 때의 총 비용 (최대치 제한 포함)
+const BULK = [10, 100, 1000, 10000, 100000, 1000000];   // 일괄 강화 단위
+const bulkLbl = n => n >= 1e4 ? (n / 1e4) + '만' : n;
 function bulkCost(s, n){
   if (n > 2000 && !s.max) { const L = S.stat[s.k], F = x => Math.pow(1 + x/12, 2.5); return Math.floor(s.base * 12 / 2.5 * (F(L + n) - F(L))); } let t = 0, lv = S.stat[s.k]; for (let i = 0; i < n && !(s.max && lv >= s.max); i++, lv++) t += costAt(s.base, lv); return t; }
 const gearCost = k => costAt(100, S.gear[k]);
@@ -763,7 +765,7 @@ function renderTab(){
     STATS.forEach(s => {
       const c = upCost(s), maxed = s.max && S.stat[s.k] >= s.max;
       h += `<div class="row"><div><b>${s.name}</b> Lv.${S.stat[s.k]}<small>${s.desc}</small></div>
-        <span><button data-s="${s.k}" ${S.meso<c||maxed?'disabled':''}>💰${fmt(c)}</button> <button data-s10="${s.k}" ${S.meso<c||maxed?'disabled':''}>×10 💰${fmt(bulkCost(s,10))}</button> <button data-s100="${s.k}" ${S.meso<c||maxed?'disabled':''}>×100 💰${fmt(bulkCost(s,100))}</button> <button data-s1000="${s.k}" ${S.meso<c||maxed?'disabled':''}>×1000 💰${fmt(bulkCost(s,1000))}</button> <button data-s10000="${s.k}" ${S.meso<c||maxed?'disabled':''}>×10000 💰${fmt(bulkCost(s,10000))}</button> <button data-s100000="${s.k}" ${S.meso<c||maxed?'disabled':''}>×100000 💰${fmt(bulkCost(s,100000))}</button></span></div>`;
+        <span><button data-s="${s.k}" ${S.meso<c||maxed?'disabled':''}>💰${fmt(c)}</button>${BULK.map(n => ` <button data-sn="${s.k}:${n}" ${S.meso<c||maxed?'disabled':''}>×${bulkLbl(n)} 💰${fmt(bulkCost(s,n))}</button>`).join('')}</span></div>`;
     });
   } else if (tab === 'gear') {
     const det = S.ui.detail, keys = Object.keys(S.items).sort((a,b)=>GEAR.findIndex(g=>g.k===kslot(a))-GEAR.findIndex(g=>g.k===kslot(b)) || kr(b)-kr(a));
@@ -779,7 +781,7 @@ function renderTab(){
     GEAR.forEach(g => {
       const c = gearCost(g.k);
       h += `<div class="row c"><div>${g.e} ${g.name} <b>+${S.gear[g.k]}</b><small>${det ? g.stat + ' +' + g.per + '/강 · ' : ''}성공 ${Math.round(gearRate(g.k)*100)}%</small></div>
-        <span><button data-g="${g.k}" ${S.meso<c?'disabled':''}>💰${fmt(c)}</button> <button data-g10="${g.k}" ${S.meso<c?'disabled':''}>×10</button> <button data-g100="${g.k}" ${S.meso<c?'disabled':''}>×100</button> <button data-g1000="${g.k}" ${S.meso<c?'disabled':''}>×1000</button> <button data-g10000="${g.k}" ${S.meso<c?'disabled':''}>×10000</button> <button data-g100000="${g.k}" ${S.meso<c?'disabled':''}>×100000</button></span></div>`;
+        <span><button data-g="${g.k}" ${S.meso<c?'disabled':''}>💰${fmt(c)}</button>${BULK.map(n => ` <button data-gn="${g.k}:${n}" ${S.meso<c?'disabled':''}>×${bulkLbl(n)}</button>`).join('')}</span></div>`;
     });
     h += `<hr><b>보유 장비 ${keys.length}종</b> <small>같은 장비 ${STARUP}개 → 1성 (최대 ${STARMAX}성, 성당 +${STARBONUS*100}%) · ★${STARMAX} 후에는 초월(최대 ${TRMAX}단계, 단계마다 +25%), 초월까지 최대면 ${STARUP}개마다 다음 등급으로 합성</small>`;
     keys.forEach(k => { const it = S.items[k], eq = S.equip[kslot(k)] === k, up = it.n >= STARUP && it.star < STARMAX;
@@ -862,30 +864,14 @@ function renderTab(){
     h += gachaHtml();
   }
   el.innerHTML = h;
-  el.querySelectorAll('[data-s100000]').forEach(b => b.onclick = () => { const s = STATS.find(x=>x.k===b.dataset.s100000); let n = 0;
-    for (let i = 0; i < 100000; i++) { const c = upCost(s); if (S.meso < c || (s.max && S.stat[s.k] >= s.max)) break; S.meso -= c; S.stat[s.k]++; n++; }
-    if (n) say(`${s.name} +${n}레벨`); renderTab(); });
-  el.querySelectorAll('[data-g100000]').forEach(b => b.onclick = () => { const k = b.dataset.g100000; let ok = 0, n = 0; chkDaily();
-    for (let i = 0; i < 100000; i++) { const c = gearCost(k); if (S.meso < c) break; S.meso -= c; n++; S.daily.enh++; S.week.enh++; if (Math.random() < gearRate(k)) { S.gear[k]++; ok++; } }
-    if (n) say(`×${n} 강화: 성공 ${ok}회`); renderTab(); });
-  el.querySelectorAll('[data-s10000]').forEach(b => b.onclick = () => { const s = STATS.find(x=>x.k===b.dataset.s10000); let n = 0;
-    for (let i = 0; i < 10000; i++) { const c = upCost(s); if (S.meso < c || (s.max && S.stat[s.k] >= s.max)) break; S.meso -= c; S.stat[s.k]++; n++; }
-    if (n) say(`${s.name} +${n}레벨`); renderTab(); });
-  el.querySelectorAll('[data-g10000]').forEach(b => b.onclick = () => { const k = b.dataset.g10000; let ok = 0, n = 0; chkDaily();
-    for (let i = 0; i < 10000; i++) { const c = gearCost(k); if (S.meso < c) break; S.meso -= c; n++; S.daily.enh++; S.week.enh++; if (Math.random() < gearRate(k)) { S.gear[k]++; ok++; } }
-    if (n) say(`×${n} 강화: 성공 ${ok}회`); renderTab(); });
-  el.querySelectorAll('[data-s1000]').forEach(b => b.onclick = () => { const s = STATS.find(x=>x.k===b.dataset.s1000); let n = 0;
-    for (let i = 0; i < 1000; i++) { const c = upCost(s); if (S.meso < c || (s.max && S.stat[s.k] >= s.max)) break; S.meso -= c; S.stat[s.k]++; n++; }
-    if (n) say(`${s.name} +${n}레벨`); renderTab(); });
-  el.querySelectorAll('[data-g1000]').forEach(b => b.onclick = () => { const k = b.dataset.g1000; let ok = 0, n = 0; chkDaily();
-    for (let i = 0; i < 1000; i++) { const c = gearCost(k); if (S.meso < c) break; S.meso -= c; n++; S.daily.enh++; S.week.enh++; if (Math.random() < gearRate(k)) { S.gear[k]++; ok++; } }
-    if (n) say(`×${n} 강화: 성공 ${ok}회`); renderTab(); });
-  el.querySelectorAll('[data-s100]').forEach(b => b.onclick = () => { const s = STATS.find(x=>x.k===b.dataset.s100); let n = 0;
-    for (let i = 0; i < 100; i++) { const c = upCost(s); if (S.meso < c || (s.max && S.stat[s.k] >= s.max)) break; S.meso -= c; S.stat[s.k]++; n++; }
-    if (n) say(`${s.name} +${n}레벨`); renderTab(); });
-  el.querySelectorAll('[data-s10]').forEach(b => b.onclick = () => { const s = STATS.find(x=>x.k===b.dataset.s10);
-    for (let i = 0; i < 10; i++) { const c = upCost(s); if (S.meso < c || (s.max && S.stat[s.k] >= s.max)) break; S.meso -= c; S.stat[s.k]++; }
-    renderTab(); });
+
+
+
+
+
+
+
+
   el.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
     const s = STATS.find(x=>x.k===b.dataset.s), c = upCost(s);
     if (S.meso >= c) { S.meso -= c; S.stat[s.k]++; renderTab(); }
@@ -928,18 +914,20 @@ function renderTab(){
   el.querySelectorAll('[data-tw]').forEach(b => b.onclick = () => { if (b.dataset.tw === 'start') towerStart(); else if (b.dataset.tw === 'sweep') towerSweep(); else if (towerRun) towerEnd('포기'); renderTab(); });
   el.querySelectorAll('[data-gk]').forEach(b => b.onclick = () => { S.ui.gtab = b.dataset.gk; renderTab(); });
   el.querySelectorAll('[data-pull]').forEach(b => b.onclick = () => { const [k, n] = b.dataset.pull.split(':'); GACHA[k].pull(+n); });
-  el.querySelectorAll('[data-g100]').forEach(b => b.onclick = () => { const k = b.dataset.g100; let ok = 0, n = 0; chkDaily();
-    for (let i = 0; i < 100; i++) { const c = gearCost(k); if (S.meso < c) break; S.meso -= c; n++; S.daily.enh++; S.week.enh++; if (Math.random() < gearRate(k)) { S.gear[k]++; ok++; } }
-    if (n) say(`×${n} 강화: 성공 ${ok}회`); renderTab(); });
-  el.querySelectorAll('[data-g10]').forEach(b => b.onclick = () => { const k = b.dataset.g10; let ok = 0, n = 0; chkDaily();
-    for (let i = 0; i < 10; i++) { const c = gearCost(k); if (S.meso < c) break; S.meso -= c; n++; S.daily.enh++; S.week.enh++; if (Math.random() < gearRate(k)) { S.gear[k]++; ok++; } }
-    if (n) say(`×${n} 강화: 성공 ${ok}회`); renderTab(); });
+
+
   el.querySelectorAll('[data-starall]').forEach(b => b.onclick = () => { let n = 0;
     Object.values(S.items).forEach(it => { while (it.n >= STARUP && it.star < STARMAX) { it.n -= STARUP; it.star++; n++; } });
     if (n) say(`전체 승급 ${n}회`); mergeMax(); autoAll(); renderTab(); });
   el.querySelectorAll('[data-itr]').forEach(b => b.onclick = () => { const it = S.items[b.dataset.itr];
     if (it && it.star >= STARMAX && (it.tr||0) < TRMAX && it.n >= ITR(it.tr||0)) { it.n -= ITR(it.tr||0); it.tr = (it.tr||0) + 1; say(`${kindName(b.dataset.itr)} 초월 ${it.tr}단계!`); mergeMax(); autoAll(); renderTab(); } });
   el.querySelectorAll('[data-trall]').forEach(b => b.onclick = () => { const n = transcendAll(); say(n ? `전체 성장·초월 ${n}회` : '초월할 수 있는 것이 없습니다'); mergeMax(); autoAll(); renderTab(); });
+  el.querySelectorAll('[data-sn]').forEach(b => b.onclick = () => { const [k, N] = b.dataset.sn.split(':'), s = STATS.find(x => x.k === k); let n = 0;
+    for (let i = 0; i < +N; i++) { const c = upCost(s); if (S.meso < c || (s.max && S.stat[s.k] >= s.max)) break; S.meso -= c; S.stat[s.k]++; n++; }
+    if (n) say(`${s.name} +${n}레벨`); renderTab(); });
+  el.querySelectorAll('[data-gn]').forEach(b => b.onclick = () => { const [k, N] = b.dataset.gn.split(':'); let ok = 0, n = 0; chkDaily();
+    for (let i = 0; i < +N; i++) { const c = gearCost(k); if (S.meso < c) break; S.meso -= c; n++; S.daily.enh++; S.week.enh++; if (Math.random() < gearRate(k)) { S.gear[k]++; ok++; } }
+    if (n) say(`×${n} 강화: 성공 ${ok}회`); renderTab(); });
   el.querySelectorAll('[data-tr]').forEach(b => b.onclick = () => { const [t, id] = b.dataset.tr.split(':'), c = colCfg(t), o = c.own[id];
     if (o && o.lv >= c.max && trOf(o) < TRMAX && o.sh >= trCost(trOf(o))) { o.sh -= trCost(trOf(o)); o.tr = trOf(o) + 1; say(`${c.defs[id].n} 초월 ${o.tr}단계!`); autoAll(); renderTab(); } });
   el.querySelectorAll('[data-all]').forEach(b => b.onclick = () => { const c = colCfg(b.dataset.all); let n = 0;

@@ -186,7 +186,7 @@ const STATS = [
 const fresh = () => ({lv:1,exp:0,meso:0,gem:0,map:0,kills:0,stat:{atk:0,hp:0,crit:0,cdmg:0,meso:0},
   gear:{weapon:0,hat:0,armor:0,shoes:0,gloves:0,cape:0,ring:0,neck:0},best:0,last:Date.now(),stage:1,clear:{},ui:{detail:false,missing:false,auto:true},tower:{best:0,tk:3,d:''},rx:{d:'',n:0},sk:{},sp:{},lr:0,relic:{},rs:0,eng:[null,null,null],daily:{},ach:{},tk:0,week:{},mine:{lv:0,t:0},ex:{d:'',n:0},job:[],pets:{},mates:{},party:[null,null,null],mpity:0,mpulls:0,lastMate:[],petEq:[null,null],ppity:0,ppulls:0,lastEgg:[],items:{},equip:{weapon:null,hat:null,armor:null,shoes:null,gloves:null,cape:null,ring:null,neck:null},pity:0,pity10:0,pulls:0,lastPull:[]});
 let S = fresh();
-try { const raw = localStorage.getItem('mapleIdle'); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); else S.gift100k = true; } catch(e){ S.gift100k = true; }   // 저장 데이터가 없는 새 게임은 선물 대상 아님
+try { const raw = localStorage.getItem('mapleIdle'); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); else { S.gift100k = true; S.gift500k = true; } } catch(e){ S.gift100k = true; S.gift500k = true; }   // 저장 데이터가 없는 새 게임은 선물 대상 아님
 if (Array.isArray(S.inv) || Object.values(S.equip||{}).some(v => v && typeof v === 'object')) {   // 구버전 장비 변환
   const add = it => { const k = it.slot + ':' + it.r; (S.items[k] = S.items[k] || {n:0, star:0}).n++; return k; };
   S.items = S.items || {}; (S.inv || []).forEach(add); delete S.inv;
@@ -202,6 +202,7 @@ S.tower = Object.assign({best:0,tk:3,d:''}, S.tower);
 S.rx = Object.assign({d:'',n:0}, S.rx);
 let giftMsg = '';
 if (!S.gift100k) { S.gift100k = true; S.gem += 100000; giftMsg = '🎁 선물: 💎100,000이 지급되었습니다!'; }
+if (!S.gift500k) { S.gift500k = true; S.gem += 500000; giftMsg = '🎁 선물: 💎500,000이 지급되었습니다!'; }
 S.sp = S.sp || {}; S.sk = S.sk || {};
 for (const k of Object.keys(S.relic)) if (!RELICS[k]) delete S.relic[k];
 S.eng = [0,1,2].map(i => S.relic[S.eng[i]] ? S.eng[i] : null);
@@ -950,7 +951,7 @@ $('reset').onclick = () => {
   if (!resetArm) { $('reset').textContent = '정말 초기화? 한 번 더 누르면 삭제'; resetArm = setTimeout(() => { resetArm = 0; $('reset').textContent = '초기화'; }, 4000); return; }
   clearTimeout(resetArm); resetArm = 0; $('reset').textContent = '초기화';
   try { localStorage.removeItem('mapleIdle'); } catch(e) {}
-  S = fresh(); S.gift100k = true; isBoss = false; skCd = 3; rd = 0; respawnPlayer(); spawn(); renderMaps(); renderTab(); say('초기화되었습니다');
+  S = fresh(); S.gift100k = true; S.gift500k = true; isBoss = false; skCd = 3; rd = 0; respawnPlayer(); spawn(); renderMaps(); renderTab(); say('초기화되었습니다');
 };
 
 claimLv(); mergeMax(); autoAll(); offline(); respawnPlayer(); spawn(); renderMaps(); renderTab(); if (giftMsg) { say(giftMsg); save(); }

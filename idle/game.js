@@ -219,7 +219,7 @@ const spTotal = () => Math.max(0, S.lv - SPSTART);
 const spUsed = () => Object.values(S.sp).reduce((a,b)=>a+b, 0);
 const spLeft = () => spTotal() - spUsed();
 const SP = k => (S.sp[k]||0) * SPSTAT[k].per;
-const lvReward = m => ({gem: 3 + m/20, rs: m/10});
+const lvReward = m => ({gem: 3 + Math.min(m, 200)/20, rs: Math.min(m, 200)/10});   // 200레벨 이후는 보상 고정
 function claimLv(){   // 10레벨마다 자동 지급 (놓친 구간도 한 번에)
   let g = 0, r = 0;
   for (let m = S.lr + 10; m <= S.lv; m += 10) { const x = lvReward(m); g += x.gem; r += x.rs; S.lr = m; }
@@ -267,11 +267,11 @@ function skv(){
   skList().forEach((sk, i) => { const lv = skLv(i); if (lv && skTier() >= sk.tier) for (const k in sk.eff) o[k] += sk.eff[k]*lv; });
   return o;
 }
-const LVCAP = 200, EXPK = 400;   // 레벨 상한 / 맵 해금 레벨에서 1레벨당 필요한 처치 수(1스테이지 기준)
+const LVCAP = 1e9, REC_END = 200, EXPK = 400;   // 레벨 상한 없음 / 권장 레벨 곡선의 끝(마지막 맵 구간) / 맵 해금 레벨에서 1레벨당 필요한 처치 수(1스테이지 기준)
 const need = lv => Math.floor(30 * Math.pow(lv, 3.0));   // 필요 경험치: 레벨의 거듭제곱 (지수 증가 없음)
 // ---- 난이도 곡선: 맵·스테이지를 하나의 티어 T(0~79)로 보고 몬스터 능력치/보상을 계산 ----
 const TIERHP = {h0:20, g:1.43}, TIERDMG = {d0:3, g:1.21};   // 몬스터 HP / 공격력 성장률 (티어당). 플레이어 전투력이 여러 효과의 곱으로 커지므로 난이도는 곱셈 성장
-const lvRec = T => { const m = Math.min(MAPS.length-1, Math.floor(T/10)), s = T % 10, a = MAPS[m].lv, b = m+1 < MAPS.length ? MAPS[m+1].lv : LVCAP; return a + (b-a)*s/10; };
+const lvRec = T => { const m = Math.min(MAPS.length-1, Math.floor(T/10)), s = T % 10, a = MAPS[m].lv, b = m+1 < MAPS.length ? MAPS[m+1].lv : REC_END; return a + (b-a)*s/10; };
 const tierOf = () => S.map * 10 + S.stage - 1;
 const tierExp = T => Math.max(1, need(Math.round(lvRec(T)) + 2) / EXPK);
 const tierMeso = T => 1.5 * (1 + T);
@@ -583,7 +583,7 @@ const DQ = [
 ];
 const sum = o => Object.values(o).reduce((a,b)=>a+b, 0);
 const ACH = [];
-[[10,10],[30,20],[50,30],[80,50],[100,80],[150,120],[200,200]].forEach(([g,v]) => ACH.push({id:'lv'+g, name:`레벨 ${g} 달성`, goal:g, gem:v, cur:()=>S.lv}));
+[[10,10],[30,20],[50,30],[80,50],[100,80],[150,120],[200,200],[300,300],[500,500],[1000,1000]].forEach(([g,v]) => ACH.push({id:'lv'+g, name:`레벨 ${g} 달성`, goal:g, gem:v, cur:()=>S.lv}));
 [[10,20],[40,40],[80,100]].forEach(([g,v]) => ACH.push({id:'cl'+g, name:`스테이지 ${g}개 클리어`, goal:g, gem:v, cur:()=>sum(S.clear)}));
 [[1000,20],[10000,60],[100000,200]].forEach(([g,v]) => ACH.push({id:'tk'+g, name:`몬스터 ${fmt(g)}마리 처치`, goal:g, gem:v, cur:()=>S.tk}));
 [[4,30],[8,80],[16,200]].forEach(([g,v]) => ACH.push({id:'pet'+g, name:`펫 ${g}종 수집`, goal:g, gem:v, cur:()=>Object.keys(S.pets).length}));

@@ -548,7 +548,7 @@ function pull(n){
   mergeMax(); autoAll();
   renderTab();
 }
-const statTxt = k => PCT[kslot(k)] ? `${PCT[kslot(k)]}${kindPow(k)}%` : `${GEAR.find(g=>g.k===kslot(k)).stat} +${fmt(kindPow(k))}`;
+const statTxt = k => PCT[kslot(k)] ? `${PCT[kslot(k)]}${fmt(kindPow(k))}%` : `${GEAR.find(g=>g.k===kslot(k)).stat} +${fmt(kindPow(k))}`;
 const HOLD = .35, PETHOLD = .7;
 function hold(){ const o = {weapon:0,hat:0,armor:0,shoes:0,gloves:0,cape:0,ring:0,neck:0}; Object.keys(S.items).forEach(k => { if (S.equip[kslot(k)] !== k) o[kslot(k)] += kindPow(k)*HOLD; }); return o; }
 const holdTxt = H => `공격력 +${H.weapon.toFixed(1)}% · HP +${H.hat.toFixed(1)}% · 방어 +${H.armor.toFixed(1)}% · 공속 +${H.shoes.toFixed(1)}% · 크리율 +${H.gloves.toFixed(1)}% · 피해 -${H.cape.toFixed(1)}% · 크뎀 +${H.ring.toFixed(1)}% · 메소·경험치 +${H.neck.toFixed(1)}%`;
@@ -700,8 +700,8 @@ const GACHA = {
 };
 function gachaHtml(){
   const k = S.ui.gtab || 'gear', g = GACHA[k], det = S.ui.detail, N = [1, 10, 100, 1000];
-  let h = `<div class="row"><span>${['gear','pet','mate'].map(x => `<button data-gk="${x}" class="${x===k?'on':''}">${GACHA[x].name}</button>`).join(' ')}</span><div>💎 ${S.gem}</div></div>`;
-  h += `<div class="row"><div><b>${g.name} 뽑기</b><small>천장 ${g.pity()}${g.epic ? ' · 에픽↑ ' + g.epic() : ''} · 총 ${g.pulls()}회</small></div><button data-ui="detail">${det?'간단히':'자세히'}</button></div>`;
+  let h = `<div class="row"><span>${['gear','pet','mate'].map(x => `<button data-gk="${x}" class="${x===k?'on':''}">${GACHA[x].name}</button>`).join(' ')}</span><div>💎 ${fmt(S.gem)}</div></div>`;
+  h += `<div class="row"><div><b>${g.name} 뽑기</b><small>천장 ${g.pity()}${g.epic ? ' · 에픽↑ ' + g.epic() : ''} · 총 ${fmt(g.pulls())}회</small></div><button data-ui="detail">${det?'간단히':'자세히'}</button></div>`;
   h += '<div class="row">' + N.map((n, i) => `<button data-pull="${k}:${n}" ${S.gem < g.cost[i] ? 'disabled' : ''}>${n}회 💎${g.cost[i]}</button>`).join(' ') + '</div>';
   h += '<small>10회마다 레어↑ 1개 보장</small>';
   if (det) {
@@ -715,7 +715,7 @@ function gachaHtml(){
 function colHtml(t){
   const c = colCfg(t), ids = Object.keys(c.defs).sort((a,b)=>c.defs[b].r-c.defs[a].r), det = S.ui.detail;
   const canAny = Object.keys(c.own).some(id => c.own[id].sh >= c.own[id].lv && c.own[id].lv < c.max);
-  let h = `<div class="row"><div><b>${c.title} ${c.slots.filter(Boolean).length}/${c.n}</b> <small>도감 ${c.owned}/${ids.length}${c.unit}</small></div><div>💎 ${S.gem}</div></div>`;
+  let h = `<div class="row"><div><b>${c.title} ${c.slots.filter(Boolean).length}/${c.n}</b> <small>도감 ${c.owned}/${ids.length}${c.unit}</small></div><div>💎 ${fmt(S.gem)}</div></div>`;
   h += `<div class="row"><span><button data-all="${t}" ${canAny?'':'disabled'}>전체 강화</button> <button data-ui="auto">자동 장착 ${S.ui.auto?'ON':'OFF'}</button> <button data-ui="autoTr">자동 초월 ${S.ui.autoTr?'ON':'OFF'}</button> <button data-trall="1">전체 초월</button> <button data-ui="detail">${det?'간단히':'자세히'}</button> <button data-ui="missing">${S.ui.missing?'미획득 숨김':'미획득 보기'}</button></span></div>`;
   for (let i = 0; i < c.n; i++) { const id = c.slots[i];
     h += `<div class="row c"><div>${id ? c.defs[id].e + ' <b style="color:'+RARITY[c.defs[id].r].c+'">' + c.defs[id].n + '</b> Lv.' + c.lv(id) + (det ? '<small>' + c.sub(id) + ' · ' + c.txt(id) + '</small>' : '') : '<small>빈 칸</small>'}</div>${id && !S.ui.auto ? `<button data-${c.k.un}="${i}">해제</button>` : ''}</div>`; }
@@ -726,7 +726,7 @@ function colHtml(t){
   ids.forEach(id => { const d = c.defs[id], o = c.own[id];
     if (!o) { missing++; if (S.ui.missing) h += `<div class="row c"><div style="opacity:.45">❔ ${d.n}<small>${RARITY[d.r].n} · 미획득</small></div></div>`; return; }
     const can = o.sh >= o.lv && o.lv < c.max, eq = c.slots.includes(id);
-    h += `<div class="row c"><div>${d.e} <b style="color:${RARITY[d.r].c}">${d.n}</b> Lv.${o.lv}${trOf(o) ? ' <b style="color:#ffb020">초월' + trOf(o) + '</b>' : ''} <small>${o.lv < c.max ? o.sh + '/' + o.lv : 'MAX' + (trOf(o) < TRMAX ? ' · 초월 ' + o.sh + '/' + trCost(trOf(o)) : '')}${eq ? ' · ★' : ''}</small>${det ? '<small>' + c.sub(id) + ' · ' + (eq ? c.txt(id) : '보유효과 ' + c.txt(id, PETHOLD)) + '</small>' : ''}</div>
+    h += `<div class="row c"><div>${d.e} <b style="color:${RARITY[d.r].c}">${d.n}</b> Lv.${o.lv}${trOf(o) ? ' <b style="color:#ffb020">초월' + trOf(o) + '</b>' : ''} <small>${o.lv < c.max ? fmt(o.sh) + '/' + o.lv : 'MAX' + (trOf(o) < TRMAX ? ' · 초월 ' + fmt(o.sh) + '/' + trCost(trOf(o)) : '')}${eq ? ' · ★' : ''}</small>${det ? '<small>' + c.sub(id) + ' · ' + (eq ? c.txt(id) : '보유효과 ' + c.txt(id, PETHOLD)) + '</small>' : ''}</div>
       <span>${o.lv >= c.max && trOf(o) < TRMAX ? `<button data-tr="${t}:${id}" ${o.sh >= trCost(trOf(o)) ? '' : 'disabled'}>초월</button> ` : `<button data-${c.k.lv}="${id}" ${can?'':'disabled'}>강화</button> `}${S.ui.auto ? '' : `<button data-${c.k.eq}="${id}" ${eq?'disabled':''}>${t==='mate'?'편성':'장착'}</button>`}</span></div>`; });
   if (missing && !S.ui.missing) h += `<small>미획득 ${missing}${c.unit} 숨김</small>`;
   return h;
@@ -761,15 +761,15 @@ function renderTab(){
       ['내 DPS', fmt(D.me)], ['동료 DPS', fmt(D.mate) + ' (' + Math.round(D.mate/D.total*100) + '%)'], ['펫 DPS', fmt(D.pet)], ['총 DPS', fmt(D.total)]];
     h += '<div class="sg">' + rows.map(r => `<div><span>${r[0]}</span><b>${r[1]}</b></div>`).join('') + '</div><hr>';
     if (S.lv > SPSTART || spUsed()) {
-      h += `<div class="row"><div><b>✨ 능력치 포인트 ${spLeft()}</b><small>Lv.${SPSTART} 이후 레벨업마다 +1 · 초기화 💎10</small></div><button data-spreset="1" ${spUsed() && S.gem >= 10 ? '' : 'disabled'}>초기화</button></div>`;
+      h += `<div class="row"><div><b>✨ 능력치 포인트 ${fmt(spLeft())}</b><small>Lv.${SPSTART} 이후 레벨업마다 +1 · 초기화 💎10</small></div><button data-spreset="1" ${spUsed() && S.gem >= 10 ? '' : 'disabled'}>초기화</button></div>`;
       Object.keys(SPSTAT).forEach(k => { const d = SPSTAT[k], v = (S.sp[k]||0) * d.per * 100;
-        h += `<div class="row c"><div>${d.n} <b>${S.sp[k]||0}</b><small>+${v.toFixed(1).replace(/\.0$/,'')}% (포인트당 +${(d.per*100).toFixed(1).replace(/\.0$/,'')}%)</small></div><span><button data-sp="${k}:1" ${spLeft() >= 1 ? '' : 'disabled'}>+1</button> <button data-sp="${k}:10" ${spLeft() >= 1 ? '' : 'disabled'}>+10</button> <button data-sp="${k}:all" ${spLeft() >= 1 ? '' : 'disabled'}>전부</button></span></div>`; });
+        h += `<div class="row c"><div>${d.n} <b>${fmt(S.sp[k]||0)}</b><small>+${v.toFixed(1).replace(/\.0$/,'')}% (포인트당 +${(d.per*100).toFixed(1).replace(/\.0$/,'')}%)</small></div><span><button data-sp="${k}:1" ${spLeft() >= 1 ? '' : 'disabled'}>+1</button> <button data-sp="${k}:10" ${spLeft() >= 1 ? '' : 'disabled'}>+10</button> <button data-sp="${k}:all" ${spLeft() >= 1 ? '' : 'disabled'}>전부</button></span></div>`; });
       h += '<hr>';
     } else h += `<small>✨ Lv.${SPSTART}부터 레벨업마다 능력치 포인트를 받습니다 · 10레벨마다 💎·💠 보상</small><hr>`;
 
     STATS.forEach(s => {
       const c = upCost(s), maxed = s.max && S.stat[s.k] >= s.max;
-      h += `<div class="row"><div><b>${s.name}</b> Lv.${S.stat[s.k]}<small>${s.desc}</small></div>
+      h += `<div class="row"><div><b>${s.name}</b> Lv.${fmt(S.stat[s.k])}<small>${s.desc}</small></div>
         <span><button data-s="${s.k}" ${S.meso<c||maxed?'disabled':''}>💰${fmt(c)}</button>${BULK.map(n => ` <button data-sn="${s.k}:${n}" ${S.meso<c||maxed?'disabled':''}>×${bulkLbl(n)} 💰${fmt(bulkCost(s,n))}</button>`).join('')}</span></div>`;
     });
   } else if (tab === 'gear') {
@@ -785,12 +785,12 @@ function renderTab(){
     h += '<hr><b>메소 강화</b>';
     GEAR.forEach(g => {
       const c = gearCost(g.k);
-      h += `<div class="row c"><div>${g.e} ${g.name} <b>+${S.gear[g.k]}</b><small>${det ? g.stat + ' +' + g.per + '/강 · ' : ''}성공 ${Math.round(gearRate(g.k)*100)}%</small></div>
+      h += `<div class="row c"><div>${g.e} ${g.name} <b>+${fmt(S.gear[g.k])}</b><small>${det ? g.stat + ' +' + g.per + '/강 · ' : ''}성공 ${Math.round(gearRate(g.k)*100)}%</small></div>
         <span><button data-g="${g.k}" ${S.meso<c?'disabled':''}>💰${fmt(c)}</button>${BULK.map(n => ` <button data-gn="${g.k}:${n}" ${S.meso<c?'disabled':''}>×${bulkLbl(n)}</button>`).join('')}</span></div>`;
     });
     h += `<hr><b>보유 장비 ${keys.length}종</b> <small>같은 장비 ${STARUP}개 → 1성 (최대 ${STARMAX}성, 성당 +${STARBONUS*100}%) · ★${STARMAX} 후에는 초월(최대 ${TRMAX}단계, 단계마다 +25%), 초월까지 최대면 ${STARUP}개마다 다음 등급으로 합성</small>`;
     keys.forEach(k => { const it = S.items[k], eq = S.equip[kslot(k)] === k, up = it.n >= STARUP && it.star < STARMAX;
-      h += `<div class="row c"><div>${GEAR.find(g=>g.k===kslot(k)).e} <span style="color:${RARITY[kr(k)].c};font-weight:700">${kindName(k)}${starOf(k) ? '★' + starOf(k) : ''}${itrOf(k) ? '초월' + itrOf(k) : ''}</span> <small>${statTxt(k).replace(/^[^+-]*/, '')} · ${it.star < STARMAX ? it.n + '/' + STARUP : (it.tr||0) < TRMAX ? '초월 ' + it.n + '/' + ITR(it.tr||0) : 'MAX ' + it.n + '/' + STARUP + (kr(k) < 4 ? ' → ' + ITEM[kslot(k)].names[kr(k)+1] : ' → 💎' + MERGEGEM)}${eq ? ' · 착용' : ''}</small></div>
+      h += `<div class="row c"><div>${GEAR.find(g=>g.k===kslot(k)).e} <span style="color:${RARITY[kr(k)].c};font-weight:700">${kindName(k)}${starOf(k) ? '★' + starOf(k) : ''}${itrOf(k) ? '초월' + itrOf(k) : ''}</span> <small>${statTxt(k).replace(/^[^+-]*/, '')} · ${it.star < STARMAX ? fmt(it.n) + '/' + STARUP : (it.tr||0) < TRMAX ? '초월 ' + fmt(it.n) + '/' + ITR(it.tr||0) : 'MAX ' + fmt(it.n) + '/' + STARUP + (kr(k) < 4 ? ' → ' + ITEM[kslot(k)].names[kr(k)+1] : ' → 💎' + MERGEGEM)}${eq ? ' · 착용' : ''}</small></div>
         <span>${it.star >= STARMAX && (it.tr||0) < TRMAX ? `<button data-itr="${k}" ${it.n >= ITR(it.tr||0) ? '' : 'disabled'}>초월</button>` : `<button data-star="${k}" ${up?'':'disabled'}>승급</button>`}${S.ui.auto ? '' : ` <button data-eq="${k}" ${eq?'disabled':''}>장착</button>`}</span></div>`; });
   } else if (tab === 'tower') {
     chkDaily();
@@ -808,7 +808,7 @@ function renderTab(){
     const root = skRoot(), tier = skTier();
     if (!root) h += `<small>Lv.10에 1차 전직하면 스킬 트리가 열립니다. (직업 탭)</small>`;
     else {
-      h += `<div class="row"><div><b>🌳 ${TREE[root].n} 스킬 트리</b><small>스킬 포인트 ${skLeft()} · 레벨 ${SKSTART}부터 레벨당 +1 · 초기화 💎10</small></div><button data-skreset="1" ${skUsed() && S.gem >= 10 ? '' : 'disabled'}>초기화</button></div>`;
+      h += `<div class="row"><div><b>🌳 ${TREE[root].n} 스킬 트리</b><small>스킬 포인트 ${fmt(skLeft())} · 레벨 ${SKSTART}부터 레벨당 +1 · 초기화 💎10</small></div><button data-skreset="1" ${skUsed() && S.gem >= 10 ? '' : 'disabled'}>초기화</button></div>`;
       skList().forEach((sk, i) => { const lv = skLv(i), locked = tier < sk.tier;
         const eff = sk.act ? `${sk.act.cd}초마다 공격력 ×${(sk.act.mul*sk.act.hits*(1+.1*(lv-1))*SKPOW).toFixed(1)} × 스킬 배율` : Object.keys(sk.eff).map(k => `${SKLBL[k]} +${(sk.eff[k]*lv*100).toFixed(1).replace(/\.0$/,'')}%`).join(' · ');
         h += `<div class="row c" style="${locked?'opacity:.5':''}"><div>${sk.e} <b>${sk.n}</b> ${lv}/${sk.max}<small>${locked ? sk.tier + '차 전직 필요 · ' + sk.d : (lv ? eff : sk.d)}</small></div>
@@ -831,7 +831,7 @@ function renderTab(){
         <span><button data-rl="${k}" ${lv >= RELICMAX || S.rs < c ? 'disabled' : ''}>${lv >= RELICMAX ? 'MAX' : (lv ? '강화' : '해방') + ' 💠' + c}</button>${!S.ui.auto && lv && !eng ? ` <button data-re="${k}">각인</button>` : ''}</span></div>`; });
   } else if (tab === 'reward') {
     chkDaily();
-    h += `<div class="row"><b>💎 보석 얻는 법</b><div>💎 ${S.gem}</div></div>`;
+    h += `<div class="row"><b>💎 보석 얻는 법</b><div>💎 ${fmt(S.gem)}</div></div>`;
     h += `<small>· 스테이지 첫 클리어 시 보스 💎 (스테이지가 높을수록 ↑)<br>· 보스 반복 처치: 처치당 💎 (시간당 최대 ${BGCAP}개)<br>· 몬스터 처치 시 0.3% 드롭 / 1000마리마다 🎁 보석 상자<br>· 보석 광산 · 메소 교환소 (하루 ${EXMAX}회) · 무한의 탑(신기록·소탕)<br>· 출석 · 일일/주간 퀘스트 · 업적<br>· 자리 비운 5분마다 💎1 (최대 8시간)</small><hr>`;
     // 보석 광산
     const pend = minePending(), mc = mineCost();
@@ -929,10 +929,10 @@ function renderTab(){
   el.querySelectorAll('[data-trall]').forEach(b => b.onclick = () => { const n = transcendAll(); say(n ? `전체 성장·초월 ${n}회` : '초월할 수 있는 것이 없습니다'); mergeMax(); autoAll(); renderTab(); });
   el.querySelectorAll('[data-sn]').forEach(b => b.onclick = () => { const [k, N] = b.dataset.sn.split(':'), s = STATS.find(x => x.k === k); let n = 0;
     for (let i = 0; i < +N; i++) { const c = upCost(s); if (S.meso < c || (s.max && S.stat[s.k] >= s.max)) break; S.meso -= c; S.stat[s.k]++; n++; }
-    if (n) say(`${s.name} +${n}레벨`); renderTab(); });
+    if (n) say(`${s.name} +${fmt(n)}레벨`); renderTab(); });
   el.querySelectorAll('[data-gn]').forEach(b => b.onclick = () => { const [k, N] = b.dataset.gn.split(':'); let ok = 0, n = 0; chkDaily();
     for (let i = 0; i < +N; i++) { const c = gearCost(k); if (S.meso < c) break; S.meso -= c; n++; S.daily.enh++; S.week.enh++; if (Math.random() < gearRate(k)) { S.gear[k]++; ok++; } }
-    if (n) say(`×${n} 강화: 성공 ${ok}회`); renderTab(); });
+    if (n) say(`×${fmt(n)} 강화: 성공 ${fmt(ok)}회`); renderTab(); });
   el.querySelectorAll('[data-tr]').forEach(b => b.onclick = () => { const [t, id] = b.dataset.tr.split(':'), c = colCfg(t), o = c.own[id];
     if (o && o.lv >= c.max && trOf(o) < TRMAX && o.sh >= trCost(trOf(o))) { o.sh -= trCost(trOf(o)); o.tr = trOf(o) + 1; say(`${c.defs[id].n} 초월 ${o.tr}단계!`); autoAll(); renderTab(); } });
   el.querySelectorAll('[data-all]').forEach(b => b.onclick = () => { const c = colCfg(b.dataset.all); let n = 0;
@@ -961,7 +961,7 @@ function render(){
   $('mateview').textContent = S.party.map(id => id ? MATES[id].e : '').join('');
   $('petview').textContent = S.petEq.map(id => id ? PETS[id].e : '').join('');
   const jn = jobNodes(); $('job').textContent = (jn.length ? jn[jn.length-1].n : '모험가');
-  $('meso').textContent = fmt(S.meso); $('gem').textContent = S.gem; $('rs').textContent = fmt(S.rs);
+  $('meso').textContent = fmt(S.meso); $('gem').textContent = fmt(S.gem); $('rs').textContent = fmt(S.rs);
   $('mhpbar').style.width = Math.max(0, mhp/mmax*100) + '%';
   $('phpbar').style.width = Math.max(0, php/p.hp*100) + '%';
   $('expbar').style.width = (S.lv >= LVCAP ? 100 : S.exp/need(S.lv)*100) + '%';

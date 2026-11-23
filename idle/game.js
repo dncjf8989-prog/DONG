@@ -178,7 +178,7 @@ const PULL1 = 2, PULL10 = 18, PULL100 = 160, PULL1000 = 1500, STAGES = 10;
 const STATS = [
   {k:'atk',  name:'공격력 단련', desc:'공격력 +5 (레벨이 높을수록 효과 체감)',  base:50,  g:1.09},
   {k:'hp',   name:'체력 단련',   desc:'최대 HP +40 (레벨이 높을수록 효과 체감)', base:40,  g:1.09},
-  {k:'crit', name:'크리티컬',    desc:'크리율 +0.5% (100% 초과분은 크리 데미지로 전환)', base:200, g:1.11},
+  {k:'crit', name:'크리티컬',    desc:'크리율 +0.5% · 크뎀 +1% (크리율 100% 초과분은 크뎀으로 전환)', base:200, g:1.11},
   {k:'cdmg', name:'크리 데미지', desc:'크뎀 +2%',    base:300, g:1.10},
   {k:'meso', name:'메소 획득',   desc:'메소 +3%',    base:500, g:1.12},
 ];
@@ -308,7 +308,7 @@ const P = () => {
     hp: (100 + S.lv*20 + statEff(S.stat.hp)*40) * (1 + SB) * (1 + pg('hat')) * J.hp * B.hp * (1 + R.hp) * (1 + SP('hp')) * (1 + K.hp),
     def: (S.lv*3 + 10) * (1 + pg('armor')) * J.def * (1 + R.def) * (1 + K.def),
     crit: Math.min(1, critRaw), critOver: Math.max(0, critRaw - 1),   // 100% 초과분은 크리 데미지로 전환
-    cdmg: 1.5 + S.stat.cdmg*.02 + J.cdmg + pg('ring') + R.cdmg + SP('cdmg') + K.cdmg + Math.max(0, critRaw - 1),
+    cdmg: 1.5 + S.stat.cdmg*.02 + S.stat.crit*.01 + J.cdmg + pg('ring') + R.cdmg + SP('cdmg') + K.cdmg + Math.max(0, critRaw - 1),
     spd: (1 + (S.gear.shoes*2 + ep('shoes'))/100) * J.spd * B.spd * (1 + R.spd) * (1 + K.spd),
     meso: (1 + S.stat.meso*.03) * J.meso * B.meso * M.meso * (1 + pg('neck')) * (1 + R.meso) * (1 + SP('meso')) * (1 + K.meso), exp: B.exp * M.exp * (1 + pg('neck')) * (1 + R.exp), red: Math.min(.7, M.red + pg('cape') + K.red),
     skill: J.skill * (1 + R.skill) * (1 + SP('skill')) * (1 + K.skill), rmate: 1 + R.mate, rpet: 1 + R.pet, regen: J.regen + M.regen + K.regen,

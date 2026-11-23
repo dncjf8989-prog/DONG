@@ -89,6 +89,11 @@ const analyzeDays=(process.argv[5]||'').split(',').filter(Boolean).map(Number); 
       test('유물',()=>{ S.relic={}; S.eng=[null,null,null]; });
       test('직업+스킬',()=>{ S.job=[]; S.sk={}; });
       test('스탯포인트',()=>{ S.sp={}; });
+      // 능력치 효율: +10레벨 올렸을 때 DPS 증가율 / 들인 메소 (아토크=1 기준으로 정규화)
+      { S=JSON.parse(snap); const dps0=dpsInfo().total, hp0=P().hp, eff={};
+        for(const st of STATS){ S=JSON.parse(snap); const c=bulkCost(st,10); S.stat[st.k]+=10; const g=dpsInfo().total/dps0-1, h=P().hp/hp0-1; eff[st.k]={cost10:c,dps증가:+(g*100).toFixed(2)+'%',hp증가:+(h*100).toFixed(2)+'%',effDps:g/c,critNow:+P().crit.toFixed(2)}; }
+        const ref=eff.atk.effDps||1; for(const k in eff){ eff[k]['효율(공격력=1)']=+(eff[k].effDps/ref).toFixed(2); delete eff[k].effDps; }
+        res['능력치효율']=eff; S=JSON.parse(snap); }
       S=JSON.parse(snap);
       return res;
     }

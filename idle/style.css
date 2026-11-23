@@ -61,3 +61,5 @@ nav{flex-wrap:wrap}nav button{min-width:22%}
 .row{flex-wrap:wrap}
 
 .row button.on{background:var(--accent);color:#fff}
+
+#expinfo{font-size:12px;opacity:.85;margin-top:3px}

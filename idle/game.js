@@ -359,8 +359,9 @@ function float(t, crit, side){
   f.textContent = t; f.style.left = (side==='p'? 20 : 72) + Math.random()*8 + '%'; f.style.top = 30 + Math.random()*20 + 'px';
   $('floaters').appendChild(f); setTimeout(()=>f.remove(), 800);
 }
+let expGained = 0, expSamples = [];   // 경험치 획득 속도(최근 60초) 추정용 (저장하지 않음)
 function gain(exp, meso){
-  const pp = P(); S.exp += exp * pp.exp; S.meso += meso * pp.meso;
+  const pp = P(); expGained += exp * pp.exp; S.exp += exp * pp.exp; S.meso += meso * pp.meso;
   while (S.lv < LVCAP && S.exp >= need(S.lv)) { S.exp -= need(S.lv); S.lv++; php = P().hp; }
   if (S.lv >= LVCAP) S.exp = 0;
   claimLv();
@@ -884,7 +885,17 @@ function render(){
   $('mhpbar').style.width = Math.max(0, mhp/mmax*100) + '%';
   $('phpbar').style.width = Math.max(0, php/p.hp*100) + '%';
   $('expbar').style.width = (S.lv >= LVCAP ? 100 : S.exp/need(S.lv)*100) + '%';
-  $('exptext').textContent = S.lv >= LVCAP ? 'MAX' : `${fmt(S.exp)} / ${fmt(need(S.lv))}`;
+  // 경험치 표시: 퍼센트, 수치, 레벨업까지 예상 시간
+  { const now = Date.now(), last = expSamples[expSamples.length-1];
+    if (!last || now - last.t >= 500) { expSamples.push({t:now, v:expGained}); while (expSamples.length > 1 && now - expSamples[0].t > 60000) expSamples.shift(); }
+    if (S.lv >= LVCAP) { $('exptext').textContent = 'MAX'; $('expinfo').textContent = '최대 레벨입니다'; }
+    else {
+      const nd = need(S.lv), pct = S.exp / nd * 100, a = expSamples[0], b = expSamples[expSamples.length-1], span = (b.t - a.t) / 1000;
+      const rate = span >= 5 ? (b.v - a.v) / span : 0;   // 초당 경험치
+      $('exptext').textContent = `${pct.toFixed(pct < 10 ? 2 : 1)}% · ${fmt(S.exp)} / ${fmt(nd)}`;
+      const fmtT = t => t < 60 ? Math.ceil(t) + '초' : t < 3600 ? Math.floor(t/60) + '분 ' + Math.ceil(t%60) + '초' : t < 86400 ? Math.floor(t/3600) + '시간 ' + Math.floor(t%3600/60) + '분' : Math.floor(t/86400) + '일 ' + Math.floor(t%86400/3600) + '시간';
+      $('expinfo').textContent = rate > 0 ? `레벨업까지 약 ${fmtT((nd - S.exp) / rate)} · 초당 경험치 ${rate < 10 ? rate.toFixed(1) : fmt(rate)}` : '레벨업 시간 계산 중… (경험치를 얻으면 표시됩니다)';
+    } }
   $('mapname').innerHTML = towerRun ? `<b>🗼 무한의 탑 ${towerRun.floor}층</b> · 클리어 ${towerRun.cleared}층` : `<b>${MAPS[S.map].name}</b> · 스테이지 ${S.stage}/${STAGES}`;
   $('mname').textContent = towerRun ? `${towerRun.floor}층 수문장 (${Math.ceil(bossT)}s)` : isBoss ? `BOSS (${Math.ceil(bossT)}s)` : MAPS[S.map].mon;
   $('stageinfo').textContent = `공격 ${fmt(p.atk)} · HP ${fmt(p.hp)} · 방어 ${fmt(p.def)} · 크리 ${(p.crit*100).toFixed(1)}%/${Math.round(p.cdmg*100)}% · 처치 ${S.kills%10}/10` + (jobNodes()[0] ? ` · ${jobNodes()[0].sk[0]} ${Math.max(0,Math.ceil(skCd))}s` : '');

@@ -186,7 +186,7 @@ const STATS = [
 const fresh = () => ({lv:1,exp:0,meso:0,gem:0,map:0,kills:0,stat:{atk:0,hp:0,crit:0,cdmg:0,meso:0},
   gear:{weapon:0,hat:0,armor:0,shoes:0,gloves:0,cape:0,ring:0,neck:0},best:0,last:Date.now(),stage:1,clear:{},ui:{detail:false,missing:false,auto:true},tower:{best:0,tk:3,d:''},rx:{d:'',n:0},sk:{},sp:{},lr:0,relic:{},rs:0,eng:[null,null,null],daily:{},ach:{},tk:0,week:{},mine:{lv:0,t:0},ex:{d:'',n:0},job:[],pets:{},mates:{},party:[null,null,null],mpity:0,mpulls:0,lastMate:[],petEq:[null,null],ppity:0,ppulls:0,lastEgg:[],items:{},equip:{weapon:null,hat:null,armor:null,shoes:null,gloves:null,cape:null,ring:null,neck:null},pity:0,pity10:0,pulls:0,lastPull:[]});
 let S = fresh();
-try { const raw = localStorage.getItem('mapleIdle'); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch(e){}
+try { const raw = localStorage.getItem('mapleIdle'); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); else S.gift100k = true; } catch(e){ S.gift100k = true; }   // 저장 데이터가 없는 새 게임은 선물 대상 아님
 if (Array.isArray(S.inv) || Object.values(S.equip||{}).some(v => v && typeof v === 'object')) {   // 구버전 장비 변환
   const add = it => { const k = it.slot + ':' + it.r; (S.items[k] = S.items[k] || {n:0, star:0}).n++; return k; };
   S.items = S.items || {}; (S.inv || []).forEach(add); delete S.inv;
@@ -200,6 +200,8 @@ if (Array.isArray(S.inv) || Object.values(S.equip||{}).some(v => v && typeof v =
 S.ui = Object.assign({detail:false,missing:false,auto:true}, S.ui);
 S.tower = Object.assign({best:0,tk:3,d:''}, S.tower);
 S.rx = Object.assign({d:'',n:0}, S.rx);
+let giftMsg = '';
+if (!S.gift100k) { S.gift100k = true; S.gem += 100000; giftMsg = '🎁 선물: 💎100,000이 지급되었습니다!'; }
 S.sp = S.sp || {}; S.sk = S.sk || {};
 for (const k of Object.keys(S.relic)) if (!RELICS[k]) delete S.relic[k];
 S.eng = [0,1,2].map(i => S.relic[S.eng[i]] ? S.eng[i] : null);
@@ -235,26 +237,45 @@ const SKILLS = {
     {n:'아이언 바디',          e:'🛡️', tier:1, max:10, eff:{hp:.03,def:.03}, d:'HP, 방어'},
     {n:'분노',                 e:'🔥', tier:2, max:10, eff:{atk:.025}, d:'공격력'},
     {n:'방어 마스터리',        e:'🏰', tier:3, max:10, eff:{red:.01,regen:.002}, d:'받는 피해 감소, 회복'},
-    {n:'영웅의 의지',          e:'👑', tier:4, max:10, eff:{atk:.05,skill:.10,hp:.04}, d:'공격력, 스킬, HP'}],
+    {n:'영웅의 의지',          e:'👑', tier:4, max:10, eff:{atk:.05,skill:.10,hp:.04}, d:'공격력, 스킬, HP'},
+    {n:'월드 크래셔',      e:'💢', tier:2, max:20, eff:{}, act:{cd:10, mul:6,  hits:1}, d:'액티브 강타'},
+    {n:'워 크라이',        e:'📣', tier:3, max:20, eff:{}, act:{cd:14, mul:10, hits:1}, d:'액티브 일격'},
+    {n:'히어로즈 레이지',  e:'🌋', tier:4, max:20, eff:{}, act:{cd:22, mul:28, hits:1}, d:'액티브 궁극기'},
+    {n:'체력 단련 II',     e:'💪', tier:2, max:20, eff:{hp:.04}, d:'HP'}],
   mage:[
     {n:'에너지 볼트 강화',     e:'🔮', tier:1, max:20, eff:{skill:.12}, d:'액티브 스킬 데미지'},
     {n:'매직 아머',            e:'🛡️', tier:1, max:10, eff:{hp:.03,def:.03}, d:'HP, 방어'},
     {n:'텔레포트 마스터리',    e:'🌀', tier:2, max:10, eff:{spd:.015}, d:'공격속도'},
     {n:'마나 폭주',            e:'💥', tier:3, max:10, eff:{atk:.03,crit:.003}, d:'공격력, 크리율'},
-    {n:'대마법사의 극의',      e:'🌌', tier:4, max:10, eff:{atk:.05,skill:.12}, d:'공격력, 스킬'}],
+    {n:'대마법사의 극의',      e:'🌌', tier:4, max:10, eff:{atk:.05,skill:.12}, d:'공격력, 스킬'},
+    {n:'체인 라이트닝',    e:'⚡', tier:2, max:20, eff:{}, act:{cd:10, mul:3,  hits:3}, d:'액티브 연쇄 번개'},
+    {n:'메테오',           e:'☄️', tier:3, max:20, eff:{}, act:{cd:15, mul:12, hits:1}, d:'액티브 운석'},
+    {n:'인피니티 블래스트',e:'🌠', tier:4, max:20, eff:{}, act:{cd:24, mul:5,  hits:6}, d:'액티브 궁극기'},
+    {n:'마나 증폭 II',     e:'🔷', tier:2, max:20, eff:{atk:.03}, d:'공격력'}],
   archer:[
     {n:'애로우 레인 강화',     e:'🏹', tier:1, max:20, eff:{skill:.12}, d:'액티브 스킬 데미지'},
     {n:'아이 오브 아처',       e:'🎯', tier:1, max:10, eff:{crit:.004}, d:'크리율'},
     {n:'윈드 부스터',          e:'🌪️', tier:2, max:10, eff:{spd:.015}, d:'공격속도'},
     {n:'퀴버 마스터리',        e:'🪶', tier:3, max:10, eff:{cdmg:.03}, d:'크리 데미지'},
-    {n:'궁신',                 e:'🦅', tier:4, max:10, eff:{crit:.005,cdmg:.04,atk:.03}, d:'크리율, 크뎀, 공격력'}],
+    {n:'궁신',                 e:'🦅', tier:4, max:10, eff:{crit:.005,cdmg:.04,atk:.03}, d:'크리율, 크뎀, 공격력'},
+    {n:'피어싱 샷',        e:'🎯', tier:2, max:20, eff:{}, act:{cd:8,  mul:5,  hits:1}, d:'액티브 관통'},
+    {n:'애로우 스톰',      e:'🌪️', tier:3, max:20, eff:{}, act:{cd:14, mul:4,  hits:4}, d:'액티브 화살 폭풍'},
+    {n:'오버로드 샷',      e:'💥', tier:4, max:20, eff:{}, act:{cd:22, mul:28, hits:1}, d:'액티브 궁극기'},
+    {n:'집중',             e:'👁️', tier:2, max:20, eff:{crit:.003}, d:'크리율'}],
   thief:[
     {n:'럭키 세븐 강화',       e:'🗡️', tier:1, max:20, eff:{skill:.12}, d:'액티브 스킬 데미지'},
     {n:'헤이스트',             e:'💨', tier:1, max:10, eff:{spd:.015}, d:'공격속도'},
     {n:'메소 스틸',            e:'🪙', tier:2, max:10, eff:{meso:.03}, d:'메소 획득'},
     {n:'크리티컬 스로우',      e:'💫', tier:3, max:10, eff:{cdmg:.03,crit:.003}, d:'크뎀, 크리율'},
-    {n:'섀도 파트너',          e:'👥', tier:4, max:10, eff:{atk:.04,skill:.10}, d:'공격력, 스킬'}],
+    {n:'섀도 파트너',          e:'👥', tier:4, max:10, eff:{atk:.04,skill:.10}, d:'공격력, 스킬'},
+    {n:'어쌔신 스트라이크',e:'🗡️', tier:2, max:20, eff:{}, act:{cd:8,  mul:4,  hits:2}, d:'액티브 연속 베기'},
+    {n:'블레이드 스톰',    e:'🌀', tier:3, max:20, eff:{}, act:{cd:15, mul:3,  hits:5}, d:'액티브 칼날 폭풍'},
+    {n:'섀도 스웜',        e:'🦇', tier:4, max:20, eff:{}, act:{cd:24, mul:30, hits:1}, d:'액티브 궁극기'},
+    {n:'날렵함',           e:'💨', tier:2, max:20, eff:{spd:.01}, d:'공격속도'}],
 };
+const SKPOW = .05;   // 추가 액티브 스킬 전체 배율
+const actDmg = (sk, lv, p) => p.atk * sk.act.mul * sk.act.hits * (1 + .1*(lv-1)) * p.skill * SKPOW;
+const skCdMap = {};
 const SKLBL = {atk:'공격력',hp:'HP',def:'방어',spd:'공속',skill:'스킬',meso:'메소',crit:'크리율',cdmg:'크뎀',red:'받는 피해 -',regen:'회복/초'};
 const skRoot = () => S.job[0] || null;
 const skTier = () => jobNodes().length;
@@ -422,6 +443,9 @@ function tick(){
       if (mhp <= 0) kill();
     }
   }
+  skList().forEach((sk, i) => { if (!sk.act) return; const lv = skLv(i); if (!lv || skTier() < sk.tier) return;
+    skCdMap[i] = (skCdMap[i] ?? sk.act.cd) - DT;
+    if (skCdMap[i] <= 0) { skCdMap[i] = sk.act.cd; const d = actDmg(sk, lv, p); mhp -= d; float(sk.n + ' ' + fmt(d), true, 'm'); if (mhp <= 0) kill(); } });
   if (p.regen) php = Math.min(p.hp, php + p.hp * p.regen * DT);
   monCd -= DT;
   if (monCd <= 0) {
@@ -516,7 +540,7 @@ const itemHtml = k => `<span style="color:${RARITY[kr(k)].c};font-weight:700">[$
 // DPS 추정 (내 공격 + 스킬 / 동료 / 펫)
 function dpsInfo(){
   const p = P(), root = jobNodes()[0];
-  const me = p.atk * (1 + p.crit*(p.cdmg-1)) * p.spd + (root ? p.atk*root.sk[2]*root.sk[3]*p.skill/root.sk[1] : 0);
+  const me = p.atk * (1 + p.crit*(p.cdmg-1)) * p.spd + (root ? p.atk*root.sk[2]*root.sk[3]*p.skill/root.sk[1] : 0) + skList().reduce((a, sk, i) => a + (sk.act && skLv(i) && skTier() >= sk.tier ? actDmg(sk, skLv(i), p) / sk.act.cd : 0), 0);
   let mate = 0, pet = 0;
   S.party.forEach(id => { if (id && S.mates[id] && MATES[id].cd) mate += p.atk*MATES[id].m*mateMul(id)*p.rmate*critAvg(p)*MATEPOW/MATES[id].cd; });
   S.petEq.forEach(id => { if (id && S.pets[id]) pet += p.atk*(.5+.4*PETS[id].r)*petMul(id)*p.rpet*critAvg(p)*PETPOW/2; });
@@ -754,7 +778,7 @@ function renderTab(){
     else {
       h += `<div class="row"><div><b>🌳 ${TREE[root].n} 스킬 트리</b><small>스킬 포인트 ${skLeft()} · 레벨 ${SKSTART}부터 레벨당 +1 · 초기화 💎10</small></div><button data-skreset="1" ${skUsed() && S.gem >= 10 ? '' : 'disabled'}>초기화</button></div>`;
       skList().forEach((sk, i) => { const lv = skLv(i), locked = tier < sk.tier;
-        const eff = Object.keys(sk.eff).map(k => `${SKLBL[k]} +${(sk.eff[k]*lv*100).toFixed(1).replace(/\.0$/,'')}%`).join(' · ');
+        const eff = sk.act ? `${sk.act.cd}초마다 공격력 ×${(sk.act.mul*sk.act.hits*(1+.1*(lv-1))*SKPOW).toFixed(1)} × 스킬 배율` : Object.keys(sk.eff).map(k => `${SKLBL[k]} +${(sk.eff[k]*lv*100).toFixed(1).replace(/\.0$/,'')}%`).join(' · ');
         h += `<div class="row c" style="${locked?'opacity:.5':''}"><div>${sk.e} <b>${sk.n}</b> ${lv}/${sk.max}<small>${locked ? sk.tier + '차 전직 필요 · ' + sk.d : (lv ? eff : sk.d)}</small></div>
           <span><button data-sk="${i}:1" ${!locked && lv < sk.max && skLeft() >= 1 ? '' : 'disabled'}>+1</button> <button data-sk="${i}:max" ${!locked && lv < sk.max && skLeft() >= 1 ? '' : 'disabled'}>MAX</button></span></div>`; });
     }
@@ -926,10 +950,10 @@ $('reset').onclick = () => {
   if (!resetArm) { $('reset').textContent = '정말 초기화? 한 번 더 누르면 삭제'; resetArm = setTimeout(() => { resetArm = 0; $('reset').textContent = '초기화'; }, 4000); return; }
   clearTimeout(resetArm); resetArm = 0; $('reset').textContent = '초기화';
   try { localStorage.removeItem('mapleIdle'); } catch(e) {}
-  S = fresh(); isBoss = false; skCd = 3; rd = 0; respawnPlayer(); spawn(); renderMaps(); renderTab(); say('초기화되었습니다');
+  S = fresh(); S.gift100k = true; isBoss = false; skCd = 3; rd = 0; respawnPlayer(); spawn(); renderMaps(); renderTab(); say('초기화되었습니다');
 };
 
-claimLv(); mergeMax(); autoAll(); offline(); respawnPlayer(); spawn(); renderMaps(); renderTab();
+claimLv(); mergeMax(); autoAll(); offline(); respawnPlayer(); spawn(); renderMaps(); renderTab(); if (giftMsg) { say(giftMsg); save(); }
 // 시계 기준 따라잡기: 알트탭/백그라운드에서 타이머가 느려져도 흐른 시간만큼 전투를 진행한다
 let lastT = Date.now();
 function catchUp(){

@@ -1,7 +1,8 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const fmt = n => n < 1e4 ? Math.floor(n).toString() :
-  n < 1e8 ? (n/1e4).toFixed(1)+'만' : n < 1e12 ? (n/1e8).toFixed(1)+'억' : (n/1e12).toFixed(1)+'조';
+  n < 1e8 ? (n/1e4).toFixed(1)+'만' : n < 1e12 ? (n/1e8).toFixed(1)+'억' : n < 1e16 ? (n/1e12).toFixed(1)+'조' :
+  n < 1e20 ? (n/1e16).toFixed(1)+'경' : n < 1e24 ? (n/1e20).toFixed(1)+'해' : n < 1e28 ? (n/1e24).toFixed(1)+'자' : n.toExponential(1);
 
 const MAPS = [
   {name:'메이플 아일랜드',  mon:'달팽이',     e:'🐌', lv:1,   hp:30,      exp:8,     meso:5},
@@ -12,6 +13,11 @@ const MAPS = [
   {name:'리프레 용의 둥지', mon:'와이번',     e:'🐲', lv:80,  hp:1e7,     exp:1e6,   meso:6e5},
   {name:'시간의 신전',      mon:'핑크빈',     e:'🌸', lv:120, hp:3e8,     exp:4e7,   meso:2e7},
   {name:'검은 마법사의 성', mon:'검은 마법사',e:'🧙‍♂️', lv:180, hp:1e10,    exp:2e9,   meso:1e9},
+  {name:'차원의 균열',      mon:'차원 수호자', e:'🌀', lv:230, hp:0, exp:0, meso:0},
+  {name:'용암 협곡',        mon:'용암 골렘',   e:'🌋', lv:290, hp:0, exp:0, meso:0},
+  {name:'얼음 왕국',        mon:'서리 거인',   e:'🧊', lv:360, hp:0, exp:0, meso:0},
+  {name:'신들의 정원',      mon:'타락한 천사', e:'👼', lv:440, hp:0, exp:0, meso:0},
+  {name:'심연의 문',        mon:'심연의 군주', e:'🕳️', lv:530, hp:0, exp:0, meso:0},
 ];
 const GEAR = [
   {k:'weapon', name:'무기', e:'🗡️', stat:'공격력%', per:1},
@@ -291,7 +297,7 @@ function skv(){
   skList().forEach((sk, i) => { const lv = skLv(i); if (lv && skTier() >= sk.tier) for (const k in sk.eff) o[k] += sk.eff[k]*lv; });
   return o;
 }
-const LVCAP = 1e9, REC_END = 200, EXPK = 400;   // 레벨 상한 없음 / 권장 레벨 곡선의 끝(마지막 맵 구간) / 맵 해금 레벨에서 1레벨당 필요한 처치 수(1스테이지 기준)
+const LVCAP = 1e9, REC_END = 650, EXPK = 400;   // 레벨 상한 없음 / 권장 레벨 곡선의 끝(마지막 맵 구간) / 맵 해금 레벨에서 1레벨당 필요한 처치 수(1스테이지 기준)
 const need = lv => Math.floor(30 * Math.pow(lv, 3.0));   // 필요 경험치: 레벨의 거듭제곱 (지수 증가 없음)
 // ---- 난이도 곡선: 맵·스테이지를 하나의 티어 T(0~79)로 보고 몬스터 능력치/보상을 계산 ----
 const TIERHP = {h0:20, g:1.43}, TIERDMG = {d0:3, g:1.21};   // 몬스터 HP / 공격력 성장률 (티어당). 플레이어 전투력이 여러 효과의 곱으로 커지므로 난이도는 곱셈 성장
@@ -623,7 +629,7 @@ const DQ = [
 const sum = o => Object.values(o).reduce((a,b)=>a+b, 0);
 const ACH = [];
 [[10,10],[30,20],[50,30],[80,50],[100,80],[150,120],[200,200],[300,300],[500,500],[1000,1000]].forEach(([g,v]) => ACH.push({id:'lv'+g, name:`레벨 ${g} 달성`, goal:g, gem:v, cur:()=>S.lv}));
-[[10,20],[40,40],[80,100]].forEach(([g,v]) => ACH.push({id:'cl'+g, name:`스테이지 ${g}개 클리어`, goal:g, gem:v, cur:()=>sum(S.clear)}));
+[[10,20],[40,40],[80,100],[110,150],[130,250]].forEach(([g,v]) => ACH.push({id:'cl'+g, name:`스테이지 ${g}개 클리어`, goal:g, gem:v, cur:()=>sum(S.clear)}));
 [[1000,20],[10000,60],[100000,200]].forEach(([g,v]) => ACH.push({id:'tk'+g, name:`몬스터 ${fmt(g)}마리 처치`, goal:g, gem:v, cur:()=>S.tk}));
 [[4,30],[8,80],[16,200]].forEach(([g,v]) => ACH.push({id:'pet'+g, name:`펫 ${g}종 수집`, goal:g, gem:v, cur:()=>Object.keys(S.pets).length}));
 [[4,30],[8,80],[16,200]].forEach(([g,v]) => ACH.push({id:'mt'+g, name:`동료 ${g}명 수집`, goal:g, gem:v, cur:()=>Object.keys(S.mates).length}));

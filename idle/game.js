@@ -428,13 +428,16 @@ let rd = 0;   // 몬스터 재등장 대기
 function tick(){
   if (rd > 0) { rd -= DT; return; }
   const p = P(), m = MAPS[S.map];
-  atkCd -= DT * p.spd;
-  if (atkCd <= 0) {
-    atkCd = 1;
-    const c = Math.random() < p.crit, d = p.atk * (c ? p.cdmg : 1) * (.9 + Math.random()*.2);
-    mhp -= d; float(fmt(d), c, 'm');
+  atkCd += DT * p.spd;   // 공격 게이지: 1이 쌓일 때마다 1회 공격 (공속 100% = 초당 2회, 한 틱에 여러 번도 가능)
+  let n = Math.floor(atkCd + 1e-9);
+  if (n >= 1) {
+    atkCd -= n; n = Math.min(n, 1000);
+    let d = 0, crit = false;
+    if (n <= 3) { for (let i = 0; i < n; i++) { const c = Math.random() < p.crit; crit = crit || c; d += p.atk * (c ? p.cdmg : 1) * (.9 + Math.random()*.2); } }
+    else { crit = true; d = n * p.atk * (1 + p.crit * (p.cdmg - 1)) * (.9 + Math.random()*.2); }   // 많이 칠 때는 기대값으로 묶어서 계산
+    mhp -= d; float(fmt(d), crit, 'm');
     $('monster').classList.add('hit'); setTimeout(()=>$('monster').classList.remove('hit'), 150);
-    if (mhp <= 0) kill();
+    if (mhp <= 0) { atkCd = 0; kill(); }
   }
   S.party.forEach(id => { if (!id || !S.mates[id] || !MATES[id].cd) return;
     mCd[id] = (mCd[id] ?? MATES[id].cd) - DT;

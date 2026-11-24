@@ -112,12 +112,73 @@ h1{margin:0;font:700 26px/1 var(--font-head);letter-spacing:-.01em}
 .toast.show{opacity:1}
 .gen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,14,28,.35);z-index:25;color:#fff;font-size:15px}
 .gen[hidden]{display:none}
+/* ===== 위장 모드: 엑셀 시트처럼 보이게 ===== */
+.xl-title,.xl-menu,.xl-fx,.xl-status,.xl-corner,.xl-colh,.xl-rowh,.cover{display:none}
+.sheet{display:block}
+body.stealth{
+  --bg:#e8e8e8; --surface:#ffffff; --ink:#1f1f1f; --muted:#666; --line:#d6d6d6; --box:#a9a9a9;
+  --accent:#444; --accent-ink:#fff; --accent-soft:#eee; --peer:#f5f5f5; --same:#ececec; --sel:#ffffff;
+  --user:#1f1f1f; --hint:#1f1f1f; --err:#c00000; --err-soft:#ffffff; --btn:#f0f0f0; --btn-ink:#333;
+  --shadow:none; --font-ui:Calibri,"Segoe UI",Arial,"Noto Sans KR",sans-serif; --font-num:Calibri,"Segoe UI",Arial,"Noto Sans KR",sans-serif; --font-head:Calibri,Arial,"Noto Sans KR",sans-serif;
+  color-scheme:light; padding-block:0; padding-left:0; padding-right:0; font-size:12px; background:var(--bg)}
+body.stealth .wrap{max-width:none;gap:0;min-height:100vh;background:var(--surface)}
+body.stealth .xl-title{display:block;background:#f3f3f3;border-bottom:1px solid #ddd;padding:5px 12px;font-size:12px;color:#444}
+body.stealth .xl-menu{display:block;background:#f3f3f3;border-bottom:1px solid #ddd;padding:5px 12px;font-size:12px;color:#444;white-space:nowrap;overflow:hidden}
+body.stealth .xl-fx{display:flex;align-items:center;gap:0;border-bottom:1px solid #ddd;background:#fff;font-size:12px}
+body.stealth .xl-fx .nm{width:64px;padding:3px 8px;border-right:1px solid #ddd}
+body.stealth .xl-fx .fn{padding:3px 10px;color:#777;font-style:italic;border-right:1px solid #ddd}
+body.stealth .xl-fx .vl{padding:3px 10px;flex:1}
+body.stealth .top{display:none}
+body.stealth .levels{padding:4px 8px;gap:0;background:#fafafa;border-bottom:1px solid #e3e3e3}
+body.stealth .pill{border:0;border-radius:0;background:transparent;color:#444;padding:3px 10px;min-height:0;font-size:12px;border-right:1px solid #e3e3e3}
+body.stealth .pill[aria-pressed="true"]{background:#e6e6e6;color:#111}
+body.stealth .pill.daily{margin-left:0}
+body.stealth .sheet{display:grid;grid-template-columns:30px 1fr;margin:0}
+body.stealth .xl-corner{display:block;background:#f0f0f0;border-right:1px solid #d0d0d0;border-bottom:1px solid #d0d0d0;height:20px}
+body.stealth .xl-colh{display:grid;grid-template-columns:repeat(9,1fr);background:#f0f0f0;border-bottom:1px solid #d0d0d0}
+body.stealth .xl-colh span{display:flex;align-items:center;justify-content:center;color:#555;font-size:11px;border-right:1px solid #d0d0d0;height:20px}
+body.stealth .xl-rowh{display:grid;grid-template-rows:repeat(9,26px);background:#f0f0f0;border-right:1px solid #d0d0d0}
+body.stealth .xl-rowh span{display:flex;align-items:center;justify-content:center;color:#555;font-size:11px;border-bottom:1px solid #d0d0d0}
+body.stealth .board{aspect-ratio:auto;grid-template-rows:repeat(9,26px);border:0;border-radius:0;overflow:visible}
+body.stealth .cell{font:400 13px/1 var(--font-num);justify-content:flex-end;padding-right:8px;border-right:1px solid #e0e0e0;border-bottom:1px solid #e0e0e0}
+body.stealth .cell.c3{border-right:1px solid #bdbdbd} body.stealth .cell.r3{border-bottom:1px solid #bdbdbd}
+body.stealth .cell.c8{border-right:1px solid #e0e0e0} body.stealth .cell.r8{border-bottom:1px solid #e0e0e0}
+body.stealth .cell.given{font-weight:400;background:#fafafa}
+body.stealth .cell.sel{box-shadow:inset 0 0 0 2px #1e6b41;z-index:1}
+body.stealth .cell.peer,body.stealth .cell.same{background:#f5f5f5}
+body.stealth .cell.err{color:#c00000}
+body.stealth .notes{position:static;display:flex;gap:3px;font:400 9px/1 var(--font-num);color:#8a8a8a;inset:auto;padding-right:0}
+body.stealth .notes i{display:inline}
+body.stealth .notes i:empty{display:none}
+body.stealth .notes i.on{color:#444}
+body.stealth .tools{display:flex;gap:0;padding:4px 8px;background:#fafafa;border-top:1px solid #e3e3e3;margin-top:8px}
+body.stealth .tool{flex-direction:row;background:transparent;border-radius:0;padding:3px 10px;min-height:0;gap:4px;font-size:12px;border-right:1px solid #e3e3e3;color:#444}
+body.stealth .tool svg{display:none}
+body.stealth .tool[aria-pressed="true"]{background:#e6e6e6;color:#111}
+body.stealth .pad{display:flex;gap:0;padding:4px 8px;background:#fafafa;border-bottom:1px solid #e3e3e3}
+body.stealth .key{flex:1;min-height:0;padding:3px 0;border:0;border-right:1px solid #e3e3e3;border-radius:0;background:transparent;flex-direction:row;gap:4px;font:400 12px/1 var(--font-num)}
+body.stealth .key small{font-size:10px}
+body.stealth .key.notes-on{border-color:#e3e3e3;color:#111;background:#ececec}
+body.stealth .foot{padding:6px 12px;font-size:12px;color:#666;background:#fff}
+body.stealth .link{color:#555;font-size:12px;min-height:0;padding:2px 0}
+body.stealth .xl-status{display:block;margin-top:auto;background:#f3f3f3;border-top:1px solid #ddd;padding:3px 12px;font-size:11px;color:#555}
+body.stealth .wrap{display:flex}
+body.stealth .toast,body.stealth .gen{display:none}
+body.stealth .win{display:none !important}
+.cover{position:fixed;inset:0;background:#fff;color:#222;z-index:99;overflow:auto;font-family:"Malgun Gothic","Noto Sans KR",system-ui,sans-serif}
+.cover:not([hidden]){display:block}
+.cbar{background:#2b579a;color:#fff;padding:6px 12px;font-size:13px}
+.cpage{max-width:720px;margin:20px auto;padding:0 20px;line-height:1.7}
+.cpage table{border-collapse:collapse;width:100%}.cpage td,.cpage th{border:1px solid #bbb;padding:4px 8px;text-align:left}
 @media (prefers-reduced-motion: reduce){ .toast{transition:none} }
 @media (max-width:380px){ .tool{font-size:11px} .stats{gap:12px} }
 </style>
 </head>
 <body>
 <div class="wrap">
+  <div class="xl-title" id="xlTitle">통계_2024_하반기.xlsx - Excel</div>
+  <div class="xl-menu">파일&nbsp;&nbsp;홈&nbsp;&nbsp;삽입&nbsp;&nbsp;페이지 레이아웃&nbsp;&nbsp;수식&nbsp;&nbsp;데이터&nbsp;&nbsp;검토&nbsp;&nbsp;보기</div>
+  <div class="xl-fx"><span class="nm" id="fxName">A1</span><span class="fn">fx</span><span class="vl" id="fxVal"></span></div>
   <div class="top">
     <div><h1>스도쿠</h1><div class="sub" id="sub">새 게임</div></div>
     <div class="stats">
@@ -134,7 +195,11 @@ h1{margin:0;font:700 26px/1 var(--font-head);letter-spacing:-.01em}
     <button class="pill daily" id="daily" aria-pressed="false">오늘의 퍼즐</button>
   </div>
 
-  <div class="board" id="board" role="grid" aria-label="스도쿠 판"></div>
+  <div class="sheet" id="sheet">
+    <div class="xl-corner"></div><div class="xl-colh" id="colh"></div>
+    <div class="xl-rowh" id="rowh"></div>
+    <div class="board" id="board" role="grid" aria-label="스도쿠 판"></div>
+  </div>
 
   <div class="tools">
     <button class="tool" id="undo" aria-label="되돌리기"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>되돌리기</button>
@@ -149,8 +214,17 @@ h1{margin:0;font:700 26px/1 var(--font-head);letter-spacing:-.01em}
   <div class="foot">
     <button class="link" id="newgame">새 게임</button>
     <label class="chk"><input type="checkbox" id="showErr" checked> 실수 바로 표시</label>
+    <button class="link" id="stealthBtn">일반 모드</button>
     <span class="best" id="best"></span>
   </div>
+  <div class="xl-status" id="xlStatus">준비</div>
+</div>
+<div class="cover" id="cover" hidden>
+  <div class="cbar">3분기 업무 보고(초안).docx - 편집기</div>
+  <div class="cpage"><h2>3분기 업무 보고 (초안)</h2>
+  <p>1. 추진 현황: 주요 과제는 일정에 맞춰 진행 중이며 세부 항목은 아래와 같음.</p>
+  <table><tr><th>항목</th><th>담당</th><th>진행률</th></tr><tr><td>자료 취합</td><td>기획팀</td><td>80%</td></tr><tr><td>예산 검토</td><td>재무팀</td><td>55%</td></tr><tr><td>결과 정리</td><td>운영팀</td><td>30%</td></tr></table>
+  <p>2. 향후 계획: 다음 주 중 검토 후 최종본을 배포할 예정임.</p></div>
 </div>
 
 <div class="win" id="win" hidden role="dialog" aria-modal="true" aria-labelledby="winTitle">
@@ -221,6 +295,8 @@ function makePuzzle(level, rnd){
 /* ---------- 상태 ---------- */
 let S = null;   // {level, daily, date, puzzle, sol, val, notes, hintCells, sel, noteMode, mistakes, hints, secs, done, showErr}
 let undoStack = [], lastTs = Date.now();
+let STEALTH = load('sudoku.stealth') !== false;   // 기본은 위장 모드
+let coverOn = false, statusT = 0;
 
 function blank(level, daily, date, p){
   return { level, daily, date, puzzle:p.puzzle, sol:p.solution, val:p.puzzle.slice(), notes:new Array(81).fill(0),
@@ -263,6 +339,8 @@ function buildPad(){
     k.innerHTML = d + '<small></small>'; p.appendChild(k);
   }
 }
+function buildFrame(){ const L = 'ABCDEFGHI'; $('#colh').innerHTML = [...L].map(c => '<span>' + c + '</span>').join(''); $('#rowh').innerHTML = [1,2,3,4,5,6,7,8,9].map(n => '<span>' + n + '</span>').join(''); }
+function applyStealth(){ document.body.classList.toggle('stealth', STEALTH); document.title = STEALTH ? '통계_2024_하반기.xlsx - Excel' : '스도쿠'; $('#stealthBtn').textContent = STEALTH ? '일반 모드' : '위장 모드'; if (S) render(); }
 function buildAll(){ buildBoard(); buildPad(); document.querySelectorAll('.pill[data-lv]').forEach(b => b.setAttribute('aria-pressed', String(!S.daily && b.dataset.lv === S.level))); $('#daily').setAttribute('aria-pressed', String(!!S.daily)); render(); }
 
 function fmt(s){ const m = Math.floor(s / 60), r = s % 60; return String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0'); }
@@ -286,6 +364,8 @@ function render(){
   $('#notes').setAttribute('aria-pressed', String(S.noteMode)); $('#notesState').textContent = S.noteMode ? '켬' : '끔';
   $('#undo').disabled = !undoStack.length;
   $('#sub').textContent = S.daily ? '오늘의 퍼즐 · ' + S.date : LV[S.level].n + ' · 숫자 ' + S.puzzle.filter(Boolean).length + '개로 시작';
+  if (S.sel >= 0) { $('#fxName').textContent = 'ABCDEFGHI'[C[S.sel]] + (R[S.sel] + 1); $('#fxVal').textContent = S.val[S.sel] || ''; }
+  if (STEALTH && !statusT) $('#xlStatus').textContent = S.done ? '계산 완료 · ' + fmt(S.secs) : '준비 · ' + fmt(S.secs);
   const best = (load(BEST) || {})[S.level]; $('#best').textContent = !S.daily && best ? LV[S.level].n + ' 최고 ' + fmt(best) : '';
 }
 
@@ -339,18 +419,20 @@ function finish(){
     else if (!best[S.level] || S.secs < best[S.level]) { best[S.level] = S.secs; store(BEST, best); rec = '새 최고 기록입니다'; }
   } else rec = '힌트를 쓰면 기록되지 않습니다';
   $('#wTime').textContent = fmt(S.secs); $('#wMist').textContent = S.mistakes; $('#wHint').textContent = S.hints; $('#wRec').textContent = rec;
+  if (STEALTH) { toast(rec ? rec + ' · ' + fmt(S.secs) : '계산 완료'); render(); return; }
   setTimeout(() => { $('#win').hidden = false; $('#wNew').focus(); }, 350); render();
 }
 
 /* ---------- 알림 / 타이머 ---------- */
 let toastT = 0;
-function toast(t){ const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 1800); }
+function toast(t){ if (STEALTH) { $('#xlStatus').textContent = t; clearTimeout(statusT); statusT = setTimeout(() => { statusT = 0; if (S) render(); }, 2000); return; } const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 1800); }
 setInterval(() => {
   const now = Date.now(), dt = now - lastTs; lastTs = now;
-  if (!S || S.done || document.hidden) return;
+  if (!S || S.done || document.hidden || coverOn) return;
   if (dt > 0 && dt < 5000) { S._ms = (S._ms || 0) + dt; while (S._ms >= 1000) { S._ms -= 1000; S.secs++; } $('#timer').textContent = fmt(S.secs); if (S.secs % 5 === 0) save(); }
 }, 250);
-document.addEventListener('visibilitychange', () => { lastTs = Date.now(); if (document.hidden) save(); });
+function setCover(on){ coverOn = on; $('#cover').hidden = !on; lastTs = Date.now(); }
+document.addEventListener('visibilitychange', () => { lastTs = Date.now(); if (document.hidden) { save(); if (STEALTH) setCover(true); } });
 
 /* ---------- 이벤트 ---------- */
 $('#board').addEventListener('pointerdown', e => { const c = e.target.closest('.cell'); if (!c || !S) return; S.sel = +c.dataset.i; render(); });
@@ -362,10 +444,13 @@ document.querySelectorAll('.pill[data-lv]').forEach(b => b.onclick = () => newGa
 $('#daily').onclick = () => newGame('normal', true);
 $('#newgame').onclick = () => newGame(S.daily ? 'normal' : S.level, false);
 $('#wNew').onclick = () => newGame(S.daily ? 'normal' : S.level, false);
+$('#stealthBtn').onclick = () => { STEALTH = !STEALTH; store('sudoku.stealth', STEALTH); applyStealth(); };
 $('#wClose').onclick = () => { $('#win').hidden = true; };
 document.addEventListener('keydown', e => {
   if (!S || e.metaKey || e.altKey) return;
   const k = e.key;
+  if (k === 'Escape') { setCover(!coverOn); e.preventDefault(); return; }
+  if (coverOn) return;
   if (k >= '1' && k <= '9') { place(+k); e.preventDefault(); }
   else if (k === 'Backspace' || k === 'Delete' || k === '0') { erase(); e.preventDefault(); }
   else if (k === 'ArrowUp') { move(-1, 0); e.preventDefault(); } else if (k === 'ArrowDown') { move(1, 0); e.preventDefault(); }
@@ -377,7 +462,7 @@ document.addEventListener('keydown', e => {
 
 /* ---------- 시작: 저장된 판이 있으면 이어서 ---------- */
 (function start(){
-  buildBoard(); buildPad();
+  buildFrame(); applyStealth(); buildBoard(); buildPad();
   const sv = load(KEY);
   if (sv && sv.puzzle && sv.sol && sv.val && sv.val.length === 81) { S = sv; $('#showErr').checked = S.showErr !== false; buildAll(); if (S.sel < 0) selectFirst(); }
   else newGame('normal', false);
